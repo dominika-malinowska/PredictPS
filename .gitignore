@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+# Jupyter
+.ipynb_checkpoints/
+# Local data and model artifacts (do not commit)
+data/*
+!data/.gitkeep
+*.tif
+*.tiff
+*.ckpt
+*.pt
+*.pth
+*.h5
+*.nc
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
