@@ -1,0 +1,52 @@
+# Copy to paths.yaml and set data_root to the directory that holds rasters
+# and checkpoints (this can be the repo data/ folder or any other path):
+#   cp config/paths.example.yaml config/paths.yaml
+#
+# Or set only the root via environment variable:
+#   export PREDICTPS_DATA_ROOT=/path/to/data
+#
+# Custom config file:
+#   export PREDICTPS_PATHS_FILE=/path/to/my_paths.yaml
+#
+# Torchgeo inputs are directories of GeoTIFFs (*.tif), not a single file.
+# Train and test keep different OSM folders; do not point them at the same path
+# unless you have confirmed the rasters match.
+
+data_root: /path/to/data
+
+# osmconvert executable. "osmconvert" means the binary on PATH.
+# Use an absolute path if it is not on PATH.
+osmconvert: osmconvert
+
+input:
+  coherence_summer_dir: "{data_root}/input/global_coh_NL/summer_vv_rho"
+  osm_train_dir: "{data_root}/input/OSM_input_updated"
+  osm_test_dir: "{data_root}/input/OSM_input_channel_v2"
+  mask_egms_dir: "{data_root}/input/mask/mask_EGMS"
+  google_satellite_dir: "{data_root}/input/Google_satellite"
+  rome_coherence_dir: "{data_root}/input/Italy/coh_Rome_cropped"
+  rome_osm_dir: "{data_root}/input/Italy/OSM_Rome_combined"
+  rome_mask_dir: "{data_root}/input/Italy/SNT/msk"
+  rome_google_satellite_dir: "{data_root}/input/Italy/Google_satellite"
+
+checkpoints:
+  netherlands_20231214: "{data_root}/best_models_15122023/seed_54321_20231214-203338.ckpt"
+  netherlands_updated_osm: "{data_root}/trainingnn_results/pixel_wise_regression_model_training_updated_OSM/seed_54321_20240612-132349.ckpt"
+  one_channel_20231218: "{data_root}/best_models_1in_18122023/seed_54321_20231218-105437.ckpt"
+
+outputs:
+  training_dir: "{data_root}/trainingnn_results"
+  training_experiment_name: pixel_wise_regression_model_training_updated_OSM
+  revision_results_dir: "{data_root}/trainingnn_results_paper_revisions"
+  test_experiment_name: pixel_wise_regression_model_training
+  predict_experiment_name: pixel_wise_regression_run_predictions
+  plots_review_dir: "{data_root}/plots_review"
+  plots_review_rome_dir: "{data_root}/plots_review_Rome"
+  paper_plots_dir: "{data_root}/plots_paper_final_version"
+
+# Example area of interest for scripts/predict_region.py.
+# The region must sit inside one 1x1 degree coherence tile.
+predict:
+  aoi_lon: [18.53, 18.9]
+  aoi_lat: [50.05, 50.5]
+  osm_pbf_name: slaskie-latest.osm.pbf

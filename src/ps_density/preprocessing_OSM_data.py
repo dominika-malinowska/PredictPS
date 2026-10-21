@@ -10,6 +10,7 @@ print(platform.python_version())
 
 # Import modules
 import os
+import shlex
 
 import osmium
 
@@ -124,13 +125,15 @@ class BuildRoadRailHandler(osmium.SimpleHandler):
             self.railways.append(row)
 
 
-def convert_osm_osmconvert(input_osm_path, output_osm_path):
+def convert_osm_osmconvert(input_osm_path, output_osm_path, osmconvert_bin=None):
     """
     Convert an OSM file to a different format using osmconvert.
 
     Arguments:
         input_osm_path (str): The path to the input OSM file.
         output_osm_path (str): The path to the output OSM file
+        osmconvert_bin (str): osmconvert executable. Defaults to the path in
+            config/paths.yaml (or ``osmconvert`` on PATH).
 
     Returns:
         None
@@ -139,9 +142,15 @@ def convert_osm_osmconvert(input_osm_path, output_osm_path):
 
     # Check if the output file already exists
     if not os.path.exists(output_osm_path):
-        # Construct the command to convert the OSM file
+        if osmconvert_bin is None:
+            from ps_density.paths import load_paths
 
-        command = f"/mnt/d/ML_model_data_paper/trainingnn_results_paper_revisions/pixel_wise_regression_run_predictions/osmconvert64 {input_osm_path} -o={output_osm_path}"
+            osmconvert_bin = load_paths().osmconvert
+
+        command = (
+            f"{shlex.quote(str(osmconvert_bin))} {shlex.quote(str(input_osm_path))} "
+            f"-o={shlex.quote(str(output_osm_path))}"
+        )
 
         try:
             # Execute the command

@@ -28,16 +28,17 @@ from lightning.pytorch import seed_everything
 
 import timeit
 
-from helper_functions.torchgeo_classes_def import RegressionTask, PixelwiseRegressionTask
-from helper_functions.torchgeo_fun_to_read_input import (
+from ps_density.torchgeo_classes_def import RegressionTask, PixelwiseRegressionTask
+from ps_density.torchgeo_fun_to_read_input import (
     scale_coh,
     plot_input,
     RasterDataset_imgs,
     RasterDataset_msks,
     RasterDatasetOptical_imgs,
 )
-from helper_functions.model_setup import test_pred_setup
-from helper_functions.prediction_plots import (
+from ps_density.model_setup import test_pred_setup
+from ps_density.paths import load_paths
+from ps_density.prediction_plots import (
     georreferenced_chip_generator,
     merge_georeferenced_chips,
     plot_input_pred_patch,
@@ -96,12 +97,13 @@ batch_size = param_opts[0][0]
 
 ### Read dataset ###
 # Set-up paths
-root = "/mnt/d/ML_model_data_paper/"
+_cfg = load_paths()
+root = str(_cfg.data_root)
 
 # Path for saving results (such as model checkpoints)
-path_prefix = os.path.join(root + "trainingnn_results_paper_revisions")
+path_prefix = str(_cfg.outputs.revision_results_dir)
 
-experiment_name = "pixel_wise_regression_model_training"
+experiment_name = _cfg.outputs.test_experiment_name
 experiment_dir = os.path.join(path_prefix, experiment_name)
 # print(experiment_dir)
 
@@ -109,11 +111,11 @@ os.makedirs(experiment_dir, exist_ok=True)
 
 # Import images and masks
 imgs_ltc = RasterDataset_imgs(
-    paths=os.path.join(root, "input", "global_coh_NL", "summer_vv_rho"),
+    paths=str(_cfg.input.coherence_summer_dir),
     transforms=scale_coh,
 )
-imgs_OSM = RasterDataset_imgs(paths=os.path.join(root, "input", "OSM_input_channel_v2"))
-msks = RasterDataset_msks(paths=os.path.join(root, "input", "mask", "mask_EGMS"))
+imgs_OSM = RasterDataset_imgs(paths=str(_cfg.input.osm_test_dir))
+msks = RasterDataset_msks(paths=str(_cfg.input.mask_egms_dir))
 
 print(
     "imgs info: ",
@@ -214,20 +216,13 @@ plot_input(dataset[bounding_box], rows=1)
 ### Print results from one specific model ###
 # Read trained model
 model = PixelwiseRegressionTask.load_from_checkpoint(
-    checkpoint_path=os.path.join(
-        root, "best_models_15122023", "seed_54321_20231214-203338.ckpt"
-    )
+    checkpoint_path=str(_cfg.checkpoints.netherlands_20231214)
 )
 plots_folder_name = "test_pred_54321_20231214_2in"
 
 # Test updated model
 model = PixelwiseRegressionTask.load_from_checkpoint(
-    checkpoint_path=os.path.join(
-        root,
-        "trainingnn_results",
-        "pixel_wise_regression_model_training_updated_OSM",
-        "seed_54321_20240612-132349.ckpt",
-    )
+    checkpoint_path=str(_cfg.checkpoints.netherlands_updated_osm)
 )
 plots_folder_name = "test_pred_OSM_updated"
 
@@ -296,10 +291,10 @@ print(
 # Generate plots for paper
 
 # Read optical data
-opt = RasterDatasetOptical_imgs(paths=os.path.join(root, "input", "Google_satellite"))
+opt = RasterDatasetOptical_imgs(paths=str(_cfg.input.google_satellite_dir))
 print(opt)
 
-outputdir_plots = os.path.join(root, "plots_review", plots_folder_name)
+outputdir_plots = os.path.join(str(_cfg.outputs.plots_review_dir), plots_folder_name)
 # Create directory if it doesn't exist
 os.makedirs(outputdir_plots, exist_ok=True)
 
@@ -497,9 +492,7 @@ dataset_1in = imgs_ltc & msks
 
 # 1 input
 model_1in = PixelwiseRegressionTask.load_from_checkpoint(
-    checkpoint_path=os.path.join(
-        root, "best_models_1in_18122023", "seed_54321_20231218-105437.ckpt"
-    )
+    checkpoint_path=str(_cfg.checkpoints.one_channel_20231218)
 )
 param_const_1in = [
     1,
@@ -546,7 +539,9 @@ dataloader_pred_1in = DataLoader(
 model_1in.eval()
 
 
-outputdir_plots_1in = os.path.join(root, "plots_review", plots_folder_name_1in)
+outputdir_plots_1in = os.path.join(
+    str(_cfg.outputs.plots_review_dir), plots_folder_name_1in
+)
 # Create directory if it doesn't exist
 os.makedirs(outputdir_plots_1in, exist_ok=True)
 
@@ -591,13 +586,11 @@ df_mae_test = plot_input_pred_patch(
 
 # Prepare dataset of images and mask
 imgs_pred_coh = RasterDataset_imgs(
-    paths=os.path.join(root, "input", "Italy", "coh_Rome_cropped"), transforms=scale_coh
+    paths=str(_cfg.input.rome_coherence_dir), transforms=scale_coh
 )
-imgs_OSM_pred = RasterDataset_imgs(
-    paths=os.path.join(root, "input", "Italy", "OSM_Rome_combined")
-)
+imgs_OSM_pred = RasterDataset_imgs(paths=str(_cfg.input.rome_osm_dir))
 imgs_pred = imgs_pred_coh & imgs_OSM_pred
-msks_pred = RasterDataset_msks(paths=os.path.join(root, "input", "Italy", "SNT", "msk"))
+msks_pred = RasterDataset_msks(paths=str(_cfg.input.rome_mask_dir))
 
 dataset_to_pred = imgs_pred & msks_pred
 
@@ -709,12 +702,12 @@ print(
 
 # Plots for paper
 # Read optical data
-opt_rome = RasterDatasetOptical_imgs(
-    paths=os.path.join(root, "input", "Italy", "Google_satellite")
-)
+opt_rome = RasterDatasetOptical_imgs(paths=str(_cfg.input.rome_google_satellite_dir))
 print(opt_rome)
 
-outputdir_plots_interf = os.path.join(root, "plots_review_Rome", plots_folder_name_1in)
+outputdir_plots_interf = os.path.join(
+    str(_cfg.outputs.plots_review_rome_dir), plots_folder_name_1in
+)
 # Create directory if it doesn't exist
 os.makedirs(outputdir_plots_interf, exist_ok=True)
 

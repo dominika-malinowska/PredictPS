@@ -50,61 +50,27 @@ torch.cuda.is_available()
 import warnings
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
-from helper_functions.torchgeo_classes_def import PixelwiseRegressionTask
-from helper_functions.torchgeo_fun_to_read_input import scale_coh, RasterDataset_imgs
-from helper_functions.prediction_plots import (
+from ps_density.torchgeo_classes_def import PixelwiseRegressionTask
+from ps_density.torchgeo_fun_to_read_input import scale_coh, RasterDataset_imgs
+from ps_density.prediction_plots import (
     georreferenced_chip_generator,
     merge_georeferenced_chips,
 )
-from helper_functions.preprocessing_OSM_data import (
+from ps_density.preprocessing_OSM_data import (
     BuildRoadRailHandler,
     convert_osm_osmconvert,
     map_value,
 )
-
-
-### Define functions ###
-def haversine_distance(lat1, lon1, lat2, lon2):
-    """
-    This function calculates the haversine distance between two points on the Earth's surface.
-
-    Arguments:
-        lat1 (float): Latitude of the first point in degrees
-        lon1 (float): Longitude of the first point in degrees
-        lat2 (float): Latitude of the second point in degrees
-        lon2 (float): Longitude of the second point in degrees
-
-    Returns:
-        float: The haversine distance between the two points in kilometers
-    """
-    # Radius of the Earth in kilometers
-    R = 6371.0
-
-    # Convert latitude and longitude from degrees to radians
-    lat1_rad = math.radians(lat1)
-    lon1_rad = math.radians(lon1)
-    lat2_rad = math.radians(lat2)
-    lon2_rad = math.radians(lon2)
-
-    # Haversine formula
-    dlat = lat2_rad - lat1_rad
-    dlon = lon2_rad - lon1_rad
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    # Distance in kilometers
-    distance = R * c
-    return distance
+from ps_density.paths import load_paths
+from ps_density.coordinates_selection import haversine_distance
 
 
 ### Set-up region to be analysed ###
 
 # !!! FOR NOW IT ONLY WORKS IF THE REGION IS WITHIN ONE BY ONE DEGREE TILE (TO BE UPDATED) !!!
-x = [18.53, 18.9]
-y = [50.05, 50.5]
+_cfg = load_paths()
+x = list(_cfg.predict.aoi_lon)
+y = list(_cfg.predict.aoi_lat)
 
 # Calculate distances
 lat_distance = haversine_distance(y[0], x[0], y[1], x[0])
@@ -117,19 +83,17 @@ print(f"Area: {area_km2:.2f} km²")
 
 ### Set-up variables ###
 
-root = "/mnt/d/ML_model_data_paper/"
-
 # Path for saving results (such as model checkpoints)
-path_prefix = os.path.join(root + "trainingnn_results_paper_revisions")
+path_prefix = str(_cfg.outputs.revision_results_dir)
 
-experiment_name = "pixel_wise_regression_run_predictions"
+experiment_name = _cfg.outputs.predict_experiment_name
 experiment_dir = os.path.join(path_prefix, experiment_name)
 # print(experiment_dir)
 
 os.makedirs(experiment_dir, exist_ok=True)
 
 # Define the path for the clipped O5M file
-clipped_osm_pbf = os.path.join(experiment_dir, "slaskie-latest.osm.pbf")
+clipped_osm_pbf = os.path.join(experiment_dir, _cfg.predict.osm_pbf_name)
 
 
 ### Set-up model parameters ###
@@ -175,9 +139,7 @@ overlap = 8
 
 # Read trained model
 model = PixelwiseRegressionTask.load_from_checkpoint(
-    checkpoint_path=os.path.join(
-        root, "best_models_15122023", "seed_54321_20231214-203338.ckpt"
-    )
+    checkpoint_path=str(_cfg.checkpoints.netherlands_20231214)
 )
 plots_folder_name = "test_pred_54321_20231214_2in"
 

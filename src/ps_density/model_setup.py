@@ -27,7 +27,7 @@ from torch.utils.data import Dataset
 
 import datetime
 
-from helper_functions.torchgeo_classes_def import PixelwiseRegressionTask, CustomGeoDataModule
+from .torchgeo_classes_def import PixelwiseRegressionTask, CustomGeoDataModule
 
 
 ### Define functions for training, testing and prediction set-up ###
@@ -108,12 +108,13 @@ def general_setup(
         + "seed"
         + str(seed)
     )
-    os.mkdir(os.path.join(".", "logs", logger_dir))
+    log_root = os.path.join(experiment_dir, "logs")
+    os.makedirs(log_root, exist_ok=True)
 
     # Set up tensorboard logger. Set default_hp_metric to false so that metrics defined
     # in the semantic segmentation task (Acc and Jacc) are logged
     tb_logger = TensorBoardLogger(
-        save_dir="../logs/", name=logger_dir, default_hp_metric=False
+        save_dir=log_root, name=logger_dir, default_hp_metric=False
     )
 
     trainer = pl.Trainer(

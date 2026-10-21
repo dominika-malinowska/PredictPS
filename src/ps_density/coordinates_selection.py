@@ -10,10 +10,12 @@ an integer within the range of -180 to 180 for longitude.
 - get_coordinates() -> List: Asks users to select how they want to define 
 the Area of Interest (AOI) and generates a list of coordinate pairs representing 
 the latitude and longitude values for the region based on the user's input.
+- haversine_distance: Great-circle distance between two lat/lon points, in kilometres.
 
 """
 
 import itertools
+import math
 from typing import List
 from shapely.geometry import Polygon
 import geopandas as gpd
@@ -23,6 +25,32 @@ import numpy as np
 
 # Functions for reading input Lat and Lon
 # and handling errors (if lat/lon is not an int)
+
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Great-circle distance between two points, in kilometres.
+
+    Arguments:
+        lat1 (float): Latitude of the first point in degrees.
+        lon1 (float): Longitude of the first point in degrees.
+        lat2 (float): Latitude of the second point in degrees.
+        lon2 (float): Longitude of the second point in degrees.
+
+    Returns:
+        float: Distance in kilometres.
+    """
+    radius_km = 6371.0
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+    )
+    return radius_km * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 def input_int_lat(message: str) -> int:

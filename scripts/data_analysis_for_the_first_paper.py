@@ -35,7 +35,8 @@ from sklearn.preprocessing import PolynomialFeatures
 
 import statsmodels.formula.api as smf
 
-from ps_predictions.utils.plotting_scatter_with_3rd_dim import plot_scatter_denisty
+from ps_density.paths import load_paths
+from ps_density.plotting_scatter_with_3rd_dim import plot_scatter_denisty
 
 
 # needed to silence errors with big reading big rasters
@@ -124,7 +125,8 @@ def load_data(root, filename) -> np.array:
 
 
 # Read data #
-root = "/mnt/d/ML_model_data_paper"
+_cfg = load_paths()
+root = str(_cfg.data_root)
 
 # Read long-term coherence raster
 path_ltcoh = os.path.join(root, "input", "global_coh_NL")
@@ -258,7 +260,9 @@ d_Rome = {
 df_Rome = pd.DataFrame(data=d_Rome)
 
 # Specify output directory for plots #
-outputdir_plots = "/mnt/d/ML_model_data_paper/plots_paper_final_version/"
+outputdir_plots = str(_cfg.outputs.paper_plots_dir)
+if not outputdir_plots.endswith(os.sep):
+    outputdir_plots += os.sep
 
 
 # Fig.3 - PS distribution #
