@@ -84,9 +84,9 @@ print(f"Area: {area_km2:.2f} km²")
 ### Set-up variables ###
 
 # Path for saving results (such as model checkpoints)
-path_prefix = str(_cfg.outputs.revision_results_dir)
+path_prefix = str(_cfg.predict.output.revision_results_dir)
 
-experiment_name = _cfg.outputs.predict_experiment_name
+experiment_name = _cfg.predict.output.experiment_name
 experiment_dir = os.path.join(path_prefix, experiment_name)
 # print(experiment_dir)
 
@@ -139,7 +139,7 @@ overlap = 8
 
 # Read trained model
 model = PixelwiseRegressionTask.load_from_checkpoint(
-    checkpoint_path=str(_cfg.checkpoints.netherlands_20231214)
+    checkpoint_path=str(_cfg.predict.checkpoint)
 )
 plots_folder_name = "test_pred_54321_20231214_2in"
 

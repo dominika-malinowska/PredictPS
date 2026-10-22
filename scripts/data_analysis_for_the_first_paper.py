@@ -260,7 +260,7 @@ d_Rome = {
 df_Rome = pd.DataFrame(data=d_Rome)
 
 # Specify output directory for plots #
-outputdir_plots = str(_cfg.outputs.paper_plots_dir)
+outputdir_plots = str(_cfg.paper.plots_dir)
 if not outputdir_plots.endswith(os.sep):
     outputdir_plots += os.sep
 

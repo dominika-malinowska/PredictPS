@@ -44,9 +44,9 @@ warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
 # Path for saving results (such as model checkpoints)
 _cfg = load_paths()
-path_prefix = str(_cfg.outputs.training_dir)
+path_prefix = str(_cfg.train.output.training_dir)
 
-experiment_name = _cfg.outputs.training_experiment_name
+experiment_name = _cfg.train.output.experiment_name
 experiment_dir = os.path.join(path_prefix, experiment_name)
 print(experiment_dir)
 
@@ -56,13 +56,13 @@ os.makedirs(experiment_dir, exist_ok=True)
 
 # Import images and masks
 imgs = RasterDataset_imgs(
-    paths=str(_cfg.input.coherence_summer_dir), transforms=scale_coh
+    paths=str(_cfg.train.input.coherence_summer_dir), transforms=scale_coh
 )
 
-imgs_OSM = RasterDataset_imgs(paths=str(_cfg.input.osm_train_dir))
+imgs_OSM = RasterDataset_imgs(paths=str(_cfg.train.input.osm_dir))
 
 
-msks = RasterDataset_msks(paths=str(_cfg.input.mask_egms_dir))
+msks = RasterDataset_msks(paths=str(_cfg.train.input.mask_egms_dir))
 
 print("imgs info: ", "crs: ", imgs.crs, "res: ", imgs.res, "length: ", len(imgs))
 print(

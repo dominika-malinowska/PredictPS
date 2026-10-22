@@ -10,7 +10,8 @@ print(platform.python_version())
 
 # Import modules
 import os
-import shlex
+import subprocess
+from pathlib import Path
 
 import osmium
 
@@ -125,15 +126,43 @@ class BuildRoadRailHandler(osmium.SimpleHandler):
             self.railways.append(row)
 
 
-def convert_osm_osmconvert(input_osm_path, output_osm_path, osmconvert_bin=None):
+def _run_osmconvert(osmconvert_bin, inputs, output_path, bbox=None):
+    """Run osmconvert. The output is published only after a zero exit code."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    partial = output_path.with_name(f".{output_path.stem}.partial.o5m")
+    command = [str(osmconvert_bin), *(str(path) for path in inputs)]
+    if bbox is not None:
+        west, south, east, north = bbox
+        command.append(f"-b={west},{south},{east},{north}")
+    command.append(f"-o={partial}")
+    result = subprocess.run(command, check=False)
+    if result.returncode != 0 or not partial.exists():
+        partial.unlink(missing_ok=True)
+        raise RuntimeError(
+            f"osmconvert failed (exit {result.returncode}) writing {output_path}"
+        )
+    partial.replace(output_path)
+
+
+def convert_osm_osmconvert(
+    input_osm_path, output_osm_path, osmconvert_bin=None, bbox=None
+):
     """
-    Convert an OSM file to a different format using osmconvert.
+    Convert one or more OSM files to a different format using osmconvert.
+
+    osmconvert accepts only one ``.pbf`` input per call. Extra extracts are
+    converted to ``.o5m`` once (cached beside the tile output) and then merged
+    and clipped together. Border objects that appear in more than one extract
+    are kept; rasterization paints the same value again.
 
     Arguments:
-        input_osm_path (str): The path to the input OSM file.
+        input_osm_path (str or sequence): One OSM path, or several paths
+            that together cover the clip.
         output_osm_path (str): The path to the output OSM file
-        osmconvert_bin (str): osmconvert executable. Defaults to the path in
-            config/paths.yaml (or ``osmconvert`` on PATH).
+        osmconvert_bin (str): osmconvert executable. Defaults to
+            ``predict.osmconvert`` in config/paths.yaml (or ``osmconvert`` on PATH).
+        bbox (tuple): Optional (west, south, east, north) clip in WGS84 degrees.
 
     Returns:
         None
@@ -141,23 +170,43 @@ def convert_osm_osmconvert(input_osm_path, output_osm_path, osmconvert_bin=None)
     print("{} started!".format(output_osm_path), flush=True)
 
     # Check if the output file already exists
-    if not os.path.exists(output_osm_path):
-        if osmconvert_bin is None:
-            from ps_density.paths import load_paths
+    if os.path.exists(output_osm_path):
+        return
 
-            osmconvert_bin = load_paths().osmconvert
+    if isinstance(input_osm_path, (str, os.PathLike)):
+        inputs = [input_osm_path]
+    else:
+        inputs = list(input_osm_path)
+    if not inputs:
+        raise ValueError("No OSM inputs were given to osmconvert")
 
-        command = (
-            f"{shlex.quote(str(osmconvert_bin))} {shlex.quote(str(input_osm_path))} "
-            f"-o={shlex.quote(str(output_osm_path))}"
-        )
+    if osmconvert_bin is None:
+        from ps_density.paths import load_paths
 
-        try:
-            # Execute the command
-            os.system(command)
-            print(f"{output_osm_path} finished!")
-        except Exception as e:
-            print(f"{output_osm_path} did not finish! Error: {e}")
+        osmconvert_bin = load_paths().predict.osmconvert
+
+    pbf_inputs = [path for path in inputs if str(path).lower().endswith(".pbf")]
+    if len(pbf_inputs) > 1:
+        cache_dir = Path(output_osm_path).parent / "_pbf_as_o5m"
+        merged_inputs = []
+        for path in inputs:
+            path = Path(path)
+            if str(path).lower().endswith(".pbf"):
+                cached = cache_dir / f"{path.name}.o5m"
+                if not cached.exists():
+                    print(
+                        f"Converting {path.name} to o5m "
+                        "(osmconvert allows only one .pbf input)",
+                        flush=True,
+                    )
+                    _run_osmconvert(osmconvert_bin, [path], cached)
+                merged_inputs.append(cached)
+            else:
+                merged_inputs.append(path)
+        inputs = merged_inputs
+
+    _run_osmconvert(osmconvert_bin, inputs, output_osm_path, bbox=bbox)
+    print(f"{output_osm_path} finished!", flush=True)
 
 
 def map_value(row):
