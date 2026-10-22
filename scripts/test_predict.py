@@ -36,6 +36,7 @@ from ps_density.torchgeo_fun_to_read_input import (
     RasterDataset_msks,
     RasterDatasetOptical_imgs,
 )
+from ps_density.model_checkpoint import resolve_paper_checkpoint
 from ps_density.model_setup import test_pred_setup
 from ps_density.paths import load_paths
 from ps_density.prediction_plots import (
@@ -214,17 +215,15 @@ plot_input(dataset[bounding_box], rows=1)
 
 
 ### Print results from one specific model ###
-# Read trained model
+# Paper 2-channel model from Hugging Face, or test.checkpoint if set
+print(
+    "Netherlands test: 2-channel paper model (coherence + OSM)",
+    flush=True,
+)
 model = PixelwiseRegressionTask.load_from_checkpoint(
-    checkpoint_path=str(_cfg.test.checkpoints.netherlands_20231214)
+    checkpoint_path=resolve_paper_checkpoint(_cfg)
 )
 plots_folder_name = "test_pred_54321_20231214_2in"
-
-# Test updated model
-model = PixelwiseRegressionTask.load_from_checkpoint(
-    checkpoint_path=str(_cfg.test.checkpoints.netherlands_updated_osm)
-)
-plots_folder_name = "test_pred_OSM_updated"
 
 
 # Set-up seed
@@ -262,12 +261,20 @@ dataloader_pred = DataLoader(
 model.eval()
 
 # Generate geotiff
+print(
+    "Netherlands prediction GeoTIFF: 2-channel paper model",
+    flush=True,
+)
 pixel_size = test_dataset.res
 crs = test_dataset.crs.to_epsg()
 
 start = timeit.default_timer()  # Measuring the time
 chips_generator = georreferenced_chip_generator(dataloader_pred, model, crs, pixel_size)
-print("The time taken to predict was: ", timeit.default_timer() - start)
+print(
+    "Netherlands prediction time (s): ",
+    timeit.default_timer() - start,
+    flush=True,
+)
 
 # Save chips as geotiff
 start = timeit.default_timer()  # Measuring the time
@@ -284,8 +291,11 @@ bounds = (int(3), int(50), int(8), int(54))
 # merge_georeferenced_chips(chips_generator, file_name)
 merge_georeferenced_chips(chips_generator, file_name, overlap, bounds)
 print(
-    "The time taken to generate a georrefenced image and save it was: ",
+    "Netherlands GeoTIFF written:",
+    file_name,
+    "in (s):",
     timeit.default_timer() - start,
+    flush=True,
 )
 
 # Generate plots for paper
@@ -297,6 +307,11 @@ print(opt)
 outputdir_plots = os.path.join(str(_cfg.test.output.plots_review_dir), plots_folder_name)
 # Create directory if it doesn't exist
 os.makedirs(outputdir_plots, exist_ok=True)
+print(
+    "Netherlands review plots: 2-channel paper model ->",
+    outputdir_plots,
+    flush=True,
+)
 
 plot_axis = True
 plot_titles = False
@@ -491,8 +506,13 @@ dataset_1in = imgs_ltc & msks
 
 
 # 1 input
+print(
+    "Netherlands test: 1-channel comparison (coherence only)",
+    flush=True,
+)
+print("Checkpoint:", _cfg.test.checkpoints.one_channel, flush=True)
 model_1in = PixelwiseRegressionTask.load_from_checkpoint(
-    checkpoint_path=str(_cfg.test.checkpoints.one_channel_20231218)
+    checkpoint_path=str(_cfg.test.checkpoints.one_channel)
 )
 param_const_1in = [
     1,
@@ -544,6 +564,11 @@ outputdir_plots_1in = os.path.join(
 )
 # Create directory if it doesn't exist
 os.makedirs(outputdir_plots_1in, exist_ok=True)
+print(
+    "Netherlands review plots: 1-channel comparison ->",
+    outputdir_plots_1in,
+    flush=True,
+)
 
 plot_axis = True
 plot_titles = False
@@ -584,6 +609,11 @@ df_mae_test = plot_input_pred_patch(
 
 ### Generalisation performance - apply model to unseen data ###
 
+print(
+    "Rome transfer: 2-channel paper model on the Italy rasters",
+    flush=True,
+)
+
 # Prepare dataset of images and mask
 imgs_pred_coh = RasterDataset_imgs(
     paths=str(_cfg.test.rome.coherence_dir), transforms=scale_coh
@@ -614,10 +644,10 @@ prediction_output = trainer.predict(model=model, datamodule=datamodule_pred)
 mae_pred = [prediction_output["MAE"] for prediction_output in prediction_output]
 stacked_tensor = torch.stack(mae_pred, dim=0)
 mean_tensor = torch.mean(stacked_tensor, dim=0)
-print("MEA of each batch: ", mae_pred)
-print("Overall MAE: ", mean_tensor)
+print("Rome MAE of each batch: ", mae_pred, flush=True)
+print("Rome overall MAE: ", mean_tensor, flush=True)
 
-RegressionTask.prediction_epoch_end(prediction_output)
+model.prediction_epoch_end(prediction_output)
 
 
 # Run interference with 20 models
@@ -665,6 +695,7 @@ model.eval()
 
 
 # Generate geotiff
+print("Rome prediction GeoTIFF: 2-channel paper model", flush=True)
 pixel_size_interf = dataset_to_pred.res
 crs_size_interf = dataset_to_pred.crs.to_epsg()
 
@@ -672,7 +703,11 @@ start = timeit.default_timer()  # Measuring the time
 chips_generator_interf = georreferenced_chip_generator(
     dataloader_interf, model, crs_size_interf, pixel_size_interf
 )
-print("The time taken to predict was: ", timeit.default_timer() - start)
+print(
+    "Rome prediction time (s): ",
+    timeit.default_timer() - start,
+    flush=True,
+)
 
 # Save chips as geotiff
 start = timeit.default_timer()  # Measuring the time
@@ -696,8 +731,11 @@ merge_georeferenced_chips(
 )
 
 print(
-    "The time taken to generate a georrefenced image and save it was: ",
+    "Rome GeoTIFF written:",
+    file_name_interf,
+    "in (s):",
     timeit.default_timer() - start,
+    flush=True,
 )
 
 # Plots for paper
@@ -707,6 +745,11 @@ print(opt_rome)
 
 outputdir_plots_interf = os.path.join(
     str(_cfg.test.rome.plots_review_dir), plots_folder_name_1in
+)
+print(
+    "Rome review plots: 2-channel paper model ->",
+    outputdir_plots_interf,
+    flush=True,
 )
 # Create directory if it doesn't exist
 os.makedirs(outputdir_plots_interf, exist_ok=True)

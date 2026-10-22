@@ -8,9 +8,11 @@
 # Custom config file:
 #   export PREDICTPS_PATHS_FILE=/path/to/my_paths.yaml
 #
-# Torchgeo accepts one GeoTIFF or a directory of them. Coherence, OSM, and the
-# EGMS mask below are the merged files. Per-tile rasters written under tiles/
-# next to those files are not read. Train and test use the same three files.
+# TorchGeo reads one GeoTIFF or every *.tif in a directory. Coherence must be
+# the tiles/ directory of 1x1 degree files. random_bbox_splitting cuts 70/15/15
+# from each file, which is the paper split. One mosaicked coherence raster is a
+# single file, so the same fractions cover different ground and the test MAE
+# changes. OSM and the EGMS mask stay one file each. Train and test share them.
 #
 # Fill only the block you need: prepare, train, test, predict, or paper.
 
@@ -43,7 +45,7 @@ prepare:
 # -------------------------------------------------------------------------
 train:
   input:
-    coherence_summer: &nl_coh "{data_root}/input/global_coh_NL/summer_vv_rho/summer_vv_rho.tif"  # merged summer VV rho
+    coherence_summer: &nl_coh "{data_root}/input/coherence_summer_NL/summer_vv_rho/tiles"  # 1x1 tiles; TorchGeo splits each file
     osm: &nl_osm "{data_root}/input/OSM_input_updated/OSM_combined.tif"  # merged OSM infrastructure
     mask_egms: &nl_mask "{data_root}/input/mask/mask_EGMS/egms_point_denisty.tif"  # EGMS PS-density raster
   output:
@@ -59,10 +61,12 @@ test:
     osm: *nl_osm
     mask_egms: *nl_mask
     google_satellite_dir: "{data_root}/input/Google_satellite"  # optional RGB context for plots
+  # Leave null/empty to download the paper model from Hugging Face
+  # (dominika-malinowska/ps_predictions, seed_54321_20231214-203338.ckpt).
+  # Set a local .ckpt (for example a training run) to override.
+  checkpoint: null
   checkpoints:
-    netherlands_20231214: "{data_root}/best_models_15122023/seed_54321_20231214-203338.ckpt"  # loaded then replaced
-    netherlands_updated_osm: "{data_root}/trainingnn_results/pixel_wise_regression_model_training_updated_OSM/seed_54321_20240612-132349.ckpt"
-    one_channel_20231218: "{data_root}/best_models_1in_18122023/seed_54321_20231218-105437.ckpt"  # one-channel comparison
+    one_channel: "{data_root}/input/nn_models/one_input_channel/seed_54321_20231218-105437.ckpt"  # one-channel comparison
   output:
     revision_results_dir: "{data_root}/trainingnn_results_paper_revisions"
     experiment_name: pixel_wise_regression_model_training

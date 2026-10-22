@@ -1,4 +1,7 @@
-"""Download 1x1 degree summer VV rho tiles and mosaic them for training."""
+"""Download 1x1 degree summer VV rho tiles and mosaic them.
+
+Train and test read the tiles directory. The mosaic is written beside it.
+"""
 
 from __future__ import annotations
 
@@ -57,14 +60,21 @@ def download_tile(lat_f, lon_f, dest_path, season, polarisation, metric):
 
 def main(season="summer", polarisation="vv", metric="rho"):
     cfg = load_paths()
-    mosaic_path = Path(cfg.train.input.coherence_summer)
-    tiles_dir = mosaic_path.parent / "tiles"
+    configured = Path(cfg.train.input.coherence_summer)
     product_name = f"{season}_{polarisation}_{metric}.tif"
-    if mosaic_path.name != product_name:
-        print(
-            f"Configured mosaic is {mosaic_path.name}; "
-            f"downloaded tiles use {product_name}"
-        )
+    # Train and test point this path at the tiles directory. A .tif path is the
+    # mosaic, and the tiles are written beside it.
+    if configured.suffix.lower() in {".tif", ".tiff"}:
+        mosaic_path = configured
+        tiles_dir = mosaic_path.parent / "tiles"
+        if mosaic_path.name != product_name:
+            print(
+                f"Configured mosaic is {mosaic_path.name}; "
+                f"downloaded tiles use {product_name}"
+            )
+    else:
+        tiles_dir = configured
+        mosaic_path = tiles_dir.parent / product_name
 
     tile_paths = []
     for west, south in prepare_tiles(cfg):

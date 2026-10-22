@@ -30,6 +30,14 @@ font_params = {
 plt.rcParams.update(font_params)
 
 
+def _model_predict(model, image):
+    """Run ``model`` on its parameter device and return a CPU tensor."""
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        prediction = model(image.to(device))
+    return prediction.detach().cpu()
+
+
 # Define functions for generating geotfiff of predictions
 def create_in_memory_geochip(predicted_chip, geotransform, crs):
     # Source:
@@ -98,20 +106,11 @@ def georreferenced_chip_generator(dataloader, model, crs, pixel_size):
         for j in range(len(sample["bbox"])):
             image, bbox = sample["image"][j], sample["bbox"][j]
 
-            # Check if the image is on the CPU and if so, move it to the designated device
-            # if image.device.type == 'cpu':
-            #     device = torch.device(f"cuda:{0}")
-            #     image = image.to(device)
-
             # Image dimension should be [batch, channels, height, width]
             # Because we are predicting one image at a time, we need to add a batch dimension
             if len(image.size()) == 3:
                 image = image.unsqueeze(0)
-            prediction = model(image)
-
-            if prediction.device.type == "cuda":
-                device = torch.device("cpu")
-                prediction = prediction.to(device)
+            prediction = _model_predict(model, image)
 
             geotransform = from_origin(bbox.minx, bbox.maxy, pixel_size, pixel_size)
 
@@ -413,8 +412,7 @@ def plot_input_pred_patch(
 
         img = batch["image"]
         msk = batch["mask"]
-        # predict with the model
-        pred = model(batch["image"])
+        pred = _model_predict(model, img)
 
         # Iterate over the batch
         for i in range(batch_size):
