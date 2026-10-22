@@ -105,8 +105,8 @@ def main():
     for path in osm_pbfs:
         print(f"  {path}")
 
-    output_dir = Path(cfg.train.input.osm_dir)
-    work_dir = output_dir / "tiles"
+    mosaic_path = Path(cfg.train.input.osm)
+    work_dir = mosaic_path.parent / "tiles"
     work_dir.mkdir(parents=True, exist_ok=True)
 
     osmconvert_bin = cfg.predict.osmconvert
@@ -139,7 +139,6 @@ def main():
     if not tile_paths:
         raise RuntimeError("No infrastructure tiles were written")
 
-    mosaic_path = output_dir / "OSM_combined.tif"
     print(f"Mosaicking {len(tile_paths)} tiles into {mosaic_path}")
     mosaic_tifs(tile_paths, mosaic_path)
     print("OSM preparation done")

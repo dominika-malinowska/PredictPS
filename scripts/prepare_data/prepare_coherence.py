@@ -57,9 +57,14 @@ def download_tile(lat_f, lon_f, dest_path, season, polarisation, metric):
 
 def main(season="summer", polarisation="vv", metric="rho"):
     cfg = load_paths()
-    output_dir = Path(cfg.train.input.coherence_summer_dir)
-    tiles_dir = output_dir / "tiles"
-    mosaic_name = f"{season}_{polarisation}_{metric}.tif"
+    mosaic_path = Path(cfg.train.input.coherence_summer)
+    tiles_dir = mosaic_path.parent / "tiles"
+    product_name = f"{season}_{polarisation}_{metric}.tif"
+    if mosaic_path.name != product_name:
+        print(
+            f"Configured mosaic is {mosaic_path.name}; "
+            f"downloaded tiles use {product_name}"
+        )
 
     tile_paths = []
     for west, south in prepare_tiles(cfg):
@@ -69,7 +74,6 @@ def main(season="summer", polarisation="vv", metric="rho"):
             download_tile(lat_f, lon_f, dest, season, polarisation, metric)
         )
 
-    mosaic_path = output_dir / mosaic_name
     print(f"Mosaicking {len(tile_paths)} tiles into {mosaic_path}")
     mosaic_tifs(tile_paths, mosaic_path)
     print("Coherence preparation done")

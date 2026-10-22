@@ -8,9 +8,9 @@
 # Custom config file:
 #   export PREDICTPS_PATHS_FILE=/path/to/my_paths.yaml
 #
-# Torchgeo inputs are directories of GeoTIFFs (*.tif), not a single file.
-# Train and test keep different OSM folders; do not point them at the same path
-# unless you have confirmed the rasters match.
+# Torchgeo accepts one GeoTIFF or a directory of them. Coherence, OSM, and the
+# EGMS mask below are the merged files. Per-tile rasters written under tiles/
+# next to those files are not read. Train and test use the same three files.
 #
 # Fill only the block you need: prepare, train, test, predict, or paper.
 
@@ -35,7 +35,7 @@ prepare:
   egms_links_txt: "{data_root}/input/egms/egms-archive-links.txt"
   # Unzipped EGMS L2b shapefiles after the manual download. The notebook
   # merges *_partN.shp here; QGIS then writes the density GeoTIFF to
-  # train.input.mask_egms_dir.
+  # train.input.mask_egms.
   egms_shp_dir: "{data_root}/input/egms/shp"
 
 # -------------------------------------------------------------------------
@@ -43,9 +43,9 @@ prepare:
 # -------------------------------------------------------------------------
 train:
   input:
-    coherence_summer_dir: &nl_coh "{data_root}/input/global_coh_NL/summer_vv_rho"  # folder of summer VV rho GeoTIFFs
-    osm_dir: "{data_root}/input/OSM_input_updated"  # folder of OSM infrastructure GeoTIFFs
-    mask_egms_dir: &nl_mask "{data_root}/input/mask/mask_EGMS"  # EGMS PS-density GeoTIFF folder
+    coherence_summer: &nl_coh "{data_root}/input/global_coh_NL/summer_vv_rho/summer_vv_rho.tif"  # merged summer VV rho
+    osm: &nl_osm "{data_root}/input/OSM_input_updated/OSM_combined.tif"  # merged OSM infrastructure
+    mask_egms: &nl_mask "{data_root}/input/mask/mask_EGMS/egms_point_denisty.tif"  # EGMS PS-density raster
   output:
     training_dir: "{data_root}/trainingnn_results"  # checkpoints and TensorBoard logs
     experiment_name: pixel_wise_regression_model_training_updated_OSM
@@ -55,9 +55,9 @@ train:
 # -------------------------------------------------------------------------
 test:
   input:
-    coherence_summer_dir: *nl_coh
-    osm_dir: "{data_root}/input/OSM_input_channel_v2"  # test OSM stack (different from train)
-    mask_egms_dir: *nl_mask
+    coherence_summer: *nl_coh
+    osm: *nl_osm
+    mask_egms: *nl_mask
     google_satellite_dir: "{data_root}/input/Google_satellite"  # optional RGB context for plots
   checkpoints:
     netherlands_20231214: "{data_root}/best_models_15122023/seed_54321_20231214-203338.ckpt"  # loaded then replaced

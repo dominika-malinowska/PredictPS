@@ -111,11 +111,11 @@ os.makedirs(experiment_dir, exist_ok=True)
 
 # Import images and masks
 imgs_ltc = RasterDataset_imgs(
-    paths=str(_cfg.test.input.coherence_summer_dir),
+    paths=str(_cfg.test.input.coherence_summer),
     transforms=scale_coh,
 )
-imgs_OSM = RasterDataset_imgs(paths=str(_cfg.test.input.osm_dir))
-msks = RasterDataset_msks(paths=str(_cfg.test.input.mask_egms_dir))
+imgs_OSM = RasterDataset_imgs(paths=str(_cfg.test.input.osm))
+msks = RasterDataset_msks(paths=str(_cfg.test.input.mask_egms))
 
 print(
     "imgs info: ",

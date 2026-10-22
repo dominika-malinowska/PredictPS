@@ -45,9 +45,9 @@ export PREDICTPS_PATHS_FILE=/path/to/my_paths.yaml
 
 `config/paths.yaml` is gitignored. `data/` contents are gitignored except this repository's placeholder files. Do not commit rasters, checkpoints, or `.venv/`.
 
-Torchgeo reads directories of `*.tif` files. A path such as `input/global_coh_NL/summer_vv_rho` must be a folder of GeoTIFFs, not a single file. The paper script (`scripts/data_analysis_for_the_first_paper.py`) is separate: it opens individual GeoTIFFs with PIL.
+Torchgeo accepts either one GeoTIFF or a directory of `*.tif` files. Coherence, OSM, and the EGMS mask in `paths.yaml` are the merged files (`summer_vv_rho.tif`, `OSM_combined.tif`, `r_nb_pts_max_all.tif`). Per-tile rasters under a sibling `tiles/` folder are not read. Rome and Google satellite paths stay directories. The paper script (`scripts/data_analysis_for_the_first_paper.py`) is separate: it opens individual GeoTIFFs with PIL.
 
-`config/paths.yaml` is grouped by workflow (`prepare`, `train`, `test`, `predict`, `paper`). Fill only the block for the script you are running. Train and test use different OSM folders (`train.input.osm_dir` vs `test.input.osm_dir`). Keep both unless you have confirmed the rasters are interchangeable.
+`config/paths.yaml` is grouped by workflow (`prepare`, `train`, `test`, `predict`, `paper`). Fill only the block for the script you are running. Train and test share the same coherence, OSM, and EGMS mask files.
 
 ## Required inputs
 
@@ -55,7 +55,7 @@ Set `data_root` before running a script. Nothing below is in git.
 
 ### Prepare training inputs
 
-The `prepare:` block sets `aoi_lon` / `aoi_lat` (same idea as predict), `prepare.osm_pbf`, and EGMS paths. 1×1 degree tiles are derived from that box. Optional `exclude_tiles` lists south-west corners to skip, or use `exclude_tiles: []` for the full rectangle. Coherence and OSM GeoTIFFs are written to `train.input.coherence_summer_dir` and `train.input.osm_dir`. The EGMS density raster is written by QGIS into `train.input.mask_egms_dir`.
+The `prepare:` block sets `aoi_lon` / `aoi_lat` (same idea as predict), `prepare.osm_pbf`, and EGMS paths. 1×1 degree tiles are derived from that box. Optional `exclude_tiles` lists south-west corners to skip, or use `exclude_tiles: []` for the full rectangle. The coherence and OSM mosaics are written to `train.input.coherence_summer` and `train.input.osm`. Tile GeoTIFFs go in `tiles/` next to those files. The EGMS density raster is written by QGIS to `train.input.mask_egms`.
 
 ```bash
 poetry run python scripts/prepare_data/prepare_coherence.py
@@ -68,15 +68,15 @@ poetry run python scripts/prepare_data/prepare_osm.py
 
 The Zenodo deposit includes `OSM_combined.tif`, the infrastructure raster used for training. Per-tile GeoTIFFs are not included. It also includes three Geofabrik extracts from 26 October 2023 so the preparation script can be tried: `netherlands-latest.osm.pbf`, `drenthe-latest.osm.pbf`, and `nordrhein-westfalen-latest.osm.pbf`. Drenthe is already covered by the Netherlands extract. Belgium and the other German states used for the full raster are omitted because of file size. Download any further `.osm.pbf` files from [Geofabrik](https://download.geofabrik.de/). These extracts and the raster are derived from OpenStreetMap data © OpenStreetMap contributors, available under the Open Database License.
 
-Open `scripts/prepare_data/prepare_egms.ipynb` in the Poetry environment. Automated cells filter the EGMS link list and merge split shapefiles. The EGMS website download and the QGIS density conversion stay manual (see the notebook). Training still expects three GeoTIFF folders; this notebook does not produce the mask raster.
+Open `scripts/prepare_data/prepare_egms.ipynb` in the Poetry environment. Automated cells filter the EGMS link list and merge split shapefiles. The EGMS website download and the QGIS density conversion stay manual (see the notebook). Training reads the three merged GeoTIFFs named in `train.input`; this notebook does not produce the mask raster.
 
 ### Train (`scripts/train.py`, `notebooks/train.ipynb`)
 
 Only the `train:` block is required.
 
-- `train.input.coherence_summer_dir` — default `{data_root}/input/global_coh_NL/summer_vv_rho/*.tif`
-- `train.input.osm_dir` — default `{data_root}/input/OSM_input_updated/*.tif`
-- `train.input.mask_egms_dir` — default `{data_root}/input/mask/mask_EGMS/*.tif`
+- `train.input.coherence_summer` — default `{data_root}/input/global_coh_NL/summer_vv_rho/summer_vv_rho.tif`
+- `train.input.osm` — default `{data_root}/input/OSM_input_updated/OSM_combined.tif`
+- `train.input.mask_egms` — default `{data_root}/input/mask/mask_EGMS/r_nb_pts_max_all.tif`
 - a CUDA GPU
 
 The Netherlands bounding box (longitude 3–8, latitude 50–54), patch size, and learning-rate settings stay in the script.
@@ -85,9 +85,7 @@ Checkpoints are written under `train.output.training_dir` / `train.output.experi
 
 ### Test on the Netherlands (`scripts/test_predict.py`, `notebooks/test_predict.ipynb`)
 
-The `test:` block. Coherence and mask default to the same folders as training, plus:
-
-- `test.input.osm_dir` — default `{data_root}/input/OSM_input_channel_v2/*.tif`
+The `test:` block uses the same coherence, OSM, and mask files as training, plus:
 - `test.checkpoints.netherlands_20231214` — default `{data_root}/best_models_15122023/seed_54321_20231214-203338.ckpt` (loaded, then replaced)
 - `test.checkpoints.netherlands_updated_osm` — default `{data_root}/trainingnn_results/pixel_wise_regression_model_training_updated_OSM/seed_54321_20240612-132349.ckpt` (the checkpoint the rest of the script uses)
 - `test.checkpoints.one_channel_20231218` — default `{data_root}/best_models_1in_18122023/seed_54321_20231218-105437.ckpt` for the one-channel comparison

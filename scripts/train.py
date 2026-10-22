@@ -56,13 +56,13 @@ os.makedirs(experiment_dir, exist_ok=True)
 
 # Import images and masks
 imgs = RasterDataset_imgs(
-    paths=str(_cfg.train.input.coherence_summer_dir), transforms=scale_coh
+    paths=str(_cfg.train.input.coherence_summer), transforms=scale_coh
 )
 
-imgs_OSM = RasterDataset_imgs(paths=str(_cfg.train.input.osm_dir))
+imgs_OSM = RasterDataset_imgs(paths=str(_cfg.train.input.osm))
 
 
-msks = RasterDataset_msks(paths=str(_cfg.train.input.mask_egms_dir))
+msks = RasterDataset_msks(paths=str(_cfg.train.input.mask_egms))
 
 print("imgs info: ", "crs: ", imgs.crs, "res: ", imgs.res, "length: ", len(imgs))
 print(
@@ -130,7 +130,7 @@ min_delta = (
     0.01  # when change in val_loss less than that for appropriate number of epochs
 )
 # early stopping will be triggered
-max_epochs = 300  # maximum number of epochs
+max_epochs = 5  # maximum number of epochs
 
 gpu_id = 0
 device = torch.device(f"cuda:{gpu_id}")
