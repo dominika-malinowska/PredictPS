@@ -1,6 +1,4 @@
-"""
-This script contains functions that allow to plot scatter plots with a third dimension
-"""
+"""Scatter plots that colour points by local density."""
 
 # Import modules
 import numpy as np
@@ -26,7 +24,7 @@ def using_mpl_scatter_density(
     Source of the function:
     https://stackoverflow.com/questions/20105364/how-can-i-make-a-scatter-plot-colored-by-density-in-matplotlib
 
-    Arguments:
+    Args:
         fig (matplotlib.figure.Figure): figure
         x (np.ndarray): x data
         y (np.ndarray): y data
@@ -86,7 +84,7 @@ def plot_scatter_denisty(
     The following function plots scatter plots with density of points as a third dimension
     It uses using_mpl_scatter_denisty function
 
-    Arguments:
+    Args:
         x (np.ndarray): x data
         y (np.ndarray): y data
         title (str): plot title

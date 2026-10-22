@@ -1,0 +1,1 @@
+"""Load repository YAML configuration."""

@@ -1,4 +1,4 @@
-# Import modules
+"""TorchGeo raster dataset subclasses and coherence scaling for model input."""
 
 import matplotlib.pyplot as plt
 
@@ -7,19 +7,23 @@ import torch
 from torchgeo.datasets import RasterDataset
 
 
-### Define functions and classes ###
-# Define calsses for raster datasets with images and masks
 class RasterDataset_imgs(RasterDataset):
+    """GeoTIFF image stack (coherence or OSM) indexed by TorchGeo."""
+
     filename_glob = "*.tif"
     is_image = True
 
+
 class RasterDataset_msks(RasterDataset):
+    """GeoTIFF mask stack (EGMS PS density) indexed by TorchGeo."""
+
     filename_glob = "*.tif"
     is_image = False
 
 
-# Define class for reading optical data as input for plots
 class RasterDatasetOptical_imgs(RasterDataset):
+    """RGB GeoTIFF used as map context in prediction review plots."""
+
     filename_glob = "*.tif"
     is_image = True
     separate_files = False
@@ -27,7 +31,15 @@ class RasterDatasetOptical_imgs(RasterDataset):
     rgb_bands = ["R", "G", "B"]
 
     def plot(self, sample):
-        # Find the correct band index order
+        """Plot RGB bands from an optical sample.
+
+        Args:
+            sample: TorchGeo sample with an ``image`` tensor.
+
+        Returns:
+            Matplotlib figure.
+        """
+
         rgb_indices = []
         for band in self.rgb_bands:
             rgb_indices.append(self.all_bands.index(band))
@@ -44,13 +56,27 @@ class RasterDatasetOptical_imgs(RasterDataset):
         return fig
 
 
-# Define function for scaling coherence data and converting it from int to float
 def scale_coh(item: dict):
+    """Scale stored coherence integers to [0, 1] floats.
+
+    Args:
+        item: Sample dict whose ``image`` tensor is coherence times 1000.
+
+    Returns:
+        The same dict with a scaled ``image`` tensor.
+    """
     item["image"] = item["image"] / 1000.0
     return item
 
-# Function for ploting the input images and mask
+
 def plot_input(dataset: dict, rows: int = 1, width: int = 10):
+    """Plot input channels and the PS-density mask side by side.
+
+    Args:
+        dataset: Sample dict with ``image`` and ``mask`` tensors.
+        rows: Number of subplot rows when more than one row is needed.
+        width: Width in inches of each subplot.
+    """
     img = dataset["image"]
     mask = dataset["mask"]
 

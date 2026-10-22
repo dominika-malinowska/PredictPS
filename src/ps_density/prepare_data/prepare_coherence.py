@@ -12,12 +12,18 @@ from pathlib import Path
 import rasterio
 from rasterio.merge import merge
 
-from ps_density.paths import format_degree_tile, load_paths, prepare_tiles
+from ps_density.config.paths import format_degree_tile, load_paths, prepare_tiles
 
 S3_PREFIX = "s3://sentinel-1-global-coherence-earthbigdata/data/tiles"
 
 
 def mosaic_tifs(tile_paths, output_path):
+    """Merge 1x1 degree GeoTIFFs into one mosaic.
+
+    Args:
+        tile_paths: Paths of downloaded tiles.
+        output_path: Destination mosaic GeoTIFF.
+    """
     sources = [rasterio.open(path) for path in tile_paths]
     try:
         mosaic, transform = merge(sources)
@@ -40,6 +46,22 @@ def mosaic_tifs(tile_paths, output_path):
 
 
 def download_tile(lat_f, lon_f, dest_path, season, polarisation, metric):
+    """Download one public Sentinel-1 global coherence tile.
+
+    Args:
+        lat_f: Latitude label, for example ``N51``.
+        lon_f: Longitude label, for example ``E018``.
+        dest_path: Local GeoTIFF path.
+        season: ``summer``, ``winter``, ``spring``, or ``fall``.
+        polarisation: ``vv`` or ``vh``.
+        metric: Coherence product, typically ``rho``.
+
+    Returns:
+        ``dest_path`` after a successful download or skip.
+
+    Raises:
+        RuntimeError: The AWS CLI copy failed.
+    """
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     if dest_path.exists():
         print(f"Skipping existing {dest_path.name}")
@@ -59,6 +81,13 @@ def download_tile(lat_f, lon_f, dest_path, season, polarisation, metric):
 
 
 def main(season="summer", polarisation="vv", metric="rho"):
+    """Download tiles for ``prepare.aoi_*`` and mosaic them.
+
+    Args:
+        season: Coherence season in the product name.
+        polarisation: Polarisation in the product name.
+        metric: Metric in the product name.
+    """
     cfg = load_paths()
     configured = Path(cfg.train.input.coherence_summer)
     product_name = f"{season}_{polarisation}_{metric}.tif"

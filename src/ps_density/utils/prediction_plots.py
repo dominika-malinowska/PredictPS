@@ -1,7 +1,4 @@
-"""
-This script contains functions for generating plots of the input,
-ground truth, and predicted patches for each patch in a batch.
-"""
+"""Georeferenced prediction chips, mosaic merge, and review plots."""
 
 # Import modules
 import os
@@ -31,7 +28,15 @@ plt.rcParams.update(font_params)
 
 
 def _model_predict(model, image):
-    """Run ``model`` on its parameter device and return a CPU tensor."""
+    """Run ``model`` on its parameter device and return a CPU tensor.
+
+    Args:
+        model: Lightning or torch module.
+        image: Input tensor on CPU or GPU.
+
+    Returns:
+        Prediction tensor on CPU.
+    """
     device = next(model.parameters()).device
     with torch.no_grad():
         prediction = model(image.to(device))
@@ -45,7 +50,7 @@ def create_in_memory_geochip(predicted_chip, geotransform, crs):
     """
     Apply georeferencing to the predicted chip.
 
-    Parameters:
+    Args:
         predicted_chip (numpy array): The predicted segmentation chip (e.g., binary mask).
         geotransform (tuple): A tuple containing the geotransformation information of the chip (x-coordinate of the top left corner, x and y pixel size, rotation, y-coordinate of the top left corner, and rotation).
         crs (str): Spatial Reference System (e.g., EPSG code) of the chip.
@@ -79,7 +84,7 @@ def georreferenced_chip_generator(dataloader, model, crs, pixel_size):
     """
     Apply georeferencing to the predicted chip.
 
-    Parameters:
+    Args:
         dataloader (torch.utils.data.Dataloader): Dataloader with the data to be predicted.
         model (an https://github.com/qubvel/segmentation_models.pytorch model): model used
         for inference.
@@ -130,7 +135,7 @@ def custom_avg(merged_data, new_data, merged_mask, new_mask, overlap, **kwargs):
     updating the merged data with valid values from the new data while considering the overlap
     between them. It is used to blend the boundaries of overlapping chips during the merging process.
 
-    Parameters:
+    Args:
         merged_data (array): variable to be updated with new data. It should have the same shape as
             the new_data parameter.
         new_data (array): data to merge same shape as merged_data
@@ -184,7 +189,7 @@ def merge_georeferenced_chips(chips_list, output_path, overlap, bounds):
     """
     Merge a list of georeferenced chips into a single GeoTIFF file.
 
-    Parameters:
+    Args:
         chips_list (list): A list of Rasterio datasets representing the georeferenced chips.
         output_path (str): The path where the merged GeoTIFF file will be saved.
         overlap (int): The number of overlapping pixels between the merged chips.
@@ -251,7 +256,7 @@ def set_axis_ticks(ax, bbox, max_ticks, plot_axis):
     """
     The function sets the ticks and labels of the x and y axes of a plot based on the bounding box of the patch.
 
-    Parameters:
+    Args:
         ax (matplotlib axis): The axis of the plot.
         bbox (rasterio bounding box): The bounding box of the patch.
         max_ticks (int): The maximum number of ticks on the x and y axes.
@@ -307,7 +312,7 @@ def create_colorbar(
     """
     The function creates a colorbar for a plot.
 
-    Parameters:
+    Args:
         image (matplotlib image): The image to which the colorbar corresponds.
         position (list): The position of the colorbar on the plot.
         label (str): The label of the colorbar.
@@ -365,7 +370,7 @@ def plot_input_pred_patch(
     The function generates plots of the input, ground truth, and predicted patches for each patch in a batch
     and in addition to saving them it returns a DataFrame containing the Mean Absolute Error (MAE) values.
 
-    Parameters:
+    Args:
         dataloader (torch.utils.data.Dataloader): The dataloader with the data to be predicted.
         model (torch.nn.Module): The model used for inference.
         opt (dict): The dictionary containing the optical image data.

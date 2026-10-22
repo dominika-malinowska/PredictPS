@@ -19,7 +19,7 @@
 data_root: /path/to/data
 
 # -------------------------------------------------------------------------
-# prepare — scripts/prepare_data/prepare_coherence.py, prepare_osm.py,
+# prepare — ps_density.prepare_data.prepare_coherence, prepare_osm,
 #           and prepare_egms.ipynb
 # -------------------------------------------------------------------------
 prepare:
@@ -41,7 +41,7 @@ prepare:
   egms_shp_dir: "{data_root}/input/egms/shp"
 
 # -------------------------------------------------------------------------
-# train — scripts/train.py and notebooks/train.ipynb
+# train — ps_density.pipeline.train and pipeline/notebooks/train.ipynb
 # -------------------------------------------------------------------------
 train:
   input:
@@ -53,7 +53,7 @@ train:
     experiment_name: pixel_wise_regression_model_training_updated_OSM
 
 # -------------------------------------------------------------------------
-# test — scripts/test_predict.py and notebooks/test_predict.ipynb
+# test — ps_density.pipeline.test_predict and pipeline/notebooks/test_predict.ipynb
 # -------------------------------------------------------------------------
 test:
   input:
@@ -79,7 +79,7 @@ test:
     plots_review_dir: "{data_root}/plots_review_Rome"
 
 # -------------------------------------------------------------------------
-# predict — scripts/predict_region.py and notebooks/predict_region.ipynb
+# predict — ps_density.pipeline.predict_region and pipeline/notebooks/predict_region.ipynb
 # The area of interest must sit inside one 1x1 degree coherence tile.
 # -------------------------------------------------------------------------
 predict:
@@ -94,7 +94,7 @@ predict:
     experiment_name: pixel_wise_regression_run_predictions
 
 # -------------------------------------------------------------------------
-# paper — scripts/data_analysis_for_the_first_paper.py only
+# paper — ps_density.pipeline.data_analysis_for_the_first_paper only
 # -------------------------------------------------------------------------
 paper:
   plots_dir: "{data_root}/plots_paper_final_version"

@@ -1,7 +1,4 @@
-"""
-The script is defining the classes for Python Lighting module, 
-regression task, and datamodule for setting up the model.
-"""
+"""Lightning regression task and TorchGeo datamodule for pixel-wise PS density."""
 
 # Import modules
 import os
@@ -67,7 +64,7 @@ class RegressionTask(LightningModule):
         """
         This function plots the image, mask and prediction.
 
-        Arguments:
+        Args:
             sample: the sample to be plotted
 
         Returns:
@@ -98,7 +95,7 @@ class RegressionTask(LightningModule):
         """
         Configures the model based on kwargs parameters.
 
-        Arguments:
+        Args:
             None
 
         Returns:
@@ -134,7 +131,7 @@ class RegressionTask(LightningModule):
         """
         Configures the task based on kwargs parameters.
 
-        Arguments:
+        Args:
             None
 
         Returns:
@@ -495,9 +492,13 @@ class PixelwiseRegressionTask(RegressionTask):
                 param.requires_grad = False
 
 
-# define data module for handling the dataset
-# TO BE DONE: Make it so that it inherits the class from the TorchGeo and only then adds changes?
 class CustomGeoDataModule(GeoDataModule):
+    """Train/val/test split of a TorchGeo intersection dataset.
+
+    ``random_bbox_splitting`` keeps 70/15/15 of each GeoTIFF. Training uses
+    ``RandomGeoSampler``; validation, test, and predict use ``GridGeoSampler``.
+    """
+
     def __init__(
         self,
         dataset_class: type[GeoDataset],
@@ -512,6 +513,21 @@ class CustomGeoDataModule(GeoDataModule):
         seed: int = 0,
         **kwargs: Any,
     ) -> None:
+        """Build a datamodule around an existing intersection dataset.
+
+        Args:
+            dataset_class: TorchGeo dataset class (unused; the instance is ``dataset_in``).
+            dataset_in: Combined image/mask dataset.
+            batch_size: Chips per batch.
+            patch_size: Chip size in pixels.
+            length: Sampler length passed to GeoDataModule.
+            length_tr: Number of training chips drawn by RandomGeoSampler.
+            length_val: Unused; validation uses a grid sampler.
+            length_pred: Unused; predict uses a grid sampler.
+            num_workers: DataLoader workers.
+            seed: Split and sampler seed.
+            **kwargs: Extra GeoDataModule arguments.
+        """
         # BaseDataModule is normalizing images in all batches with mean = 0 and std =255.
         # That doesn't make sense when images aren't RGB (i.e. in range 0-255)
         # Thus, change std to 1 to avoid the normalization

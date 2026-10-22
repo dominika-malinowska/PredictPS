@@ -1,4 +1,8 @@
-"""Resolve the paper U-Net checkpoint from Hugging Face or a local path."""
+"""Resolve the paper U-Net checkpoint from Hugging Face or a local path.
+
+The 2-channel paper weights are cached by ``huggingface_hub`` when
+``test.checkpoint`` is empty.
+"""
 
 from huggingface_hub import hf_hub_download
 

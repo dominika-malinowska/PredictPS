@@ -1,7 +1,4 @@
-"""
-This script contains functions for setting up the training, testing 
-and prediction of the model.
-"""
+"""Lightning trainer, checkpoint, and datamodule setup for train and test."""
 
 # Import modules
 import os
@@ -49,7 +46,7 @@ def general_setup(
     The function sets up the general training/testing/prediction environment.
     It sets up the datamodule, model checkpoint, early stopping, learning rate
 
-    Arguments:
+    Args:
         seed (int): seed for reproducibility
         dataset (Dataset[dict[str, Tensor]]): dataset to be used
         batch_size (int): batch size
@@ -144,7 +141,7 @@ def training_setup(
     """
     The function sets up the training environment.
 
-    Parameters:
+    Args:
         seed (int): seed for reproducibility
         param_const (list): list of constants
         param_opts (list): list of options
@@ -234,7 +231,7 @@ def test_pred_setup(
     """
     This function sets up the testing and prediction environment.
 
-    Arguments:
+    Args:
         seed (int): seed for reproducibility
         param_const (list): list of constants
         param_opts (list): list of options

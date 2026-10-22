@@ -2,11 +2,27 @@
 
 Pixel-wise prediction of persistent scatterer (PS) density from Sentinel-1 global coherence rasters and OpenStreetMap infrastructure maps.
 
+## How to cite
+
+This repository contains code required to reproduce results for the paper entitled "" (DOI ).
+
+Research data: .
+
+See also [CITATION.cff](CITATION.cff).
+
+## Data availability
+
+Input data, intermediate files, and outputs that reproduce the paper are published on Zenodo.
+
+**DOI:**
+
+Download and extract the archive, then set `data_root` to the extracted directory (see Configuration). Folder names match [`config/paths.example.yaml`](config/paths.example.yaml). Required file names are listed under Required inputs.
+
 ## Installation
 
 Requires Python 3.9.18 on Linux x86_64. The lockfile installs the PyTorch 2.0.1 CUDA 11.8 wheel (`torch==2.0.1+cu118`), not the CPU wheel from PyPI. macOS, native Windows, and CPU-only machines cannot use this lockfile as-is.
 
-A CUDA GPU is required to train, test, or predict. `scripts/train.py`, `scripts/test_predict.py`, and `scripts/predict_region.py` build a Lightning trainer with `accelerator="gpu"`. Importing the package does not need a GPU or any rasters.
+A CUDA GPU is required to train, test, or predict. `ps_density.pipeline.train`, `ps_density.pipeline.test_predict`, and `ps_density.pipeline.predict_region` build a Lightning trainer with `accelerator="gpu"`. Importing the package does not need a GPU or any rasters.
 
 ```bash
 poetry install
@@ -18,172 +34,273 @@ Check the environment:
 poetry run python -c "import torch, ps_density; print(torch.__version__, torch.cuda.is_available())"
 ```
 
-`osmconvert` and the AWS CLI are external programs. Install `osmconvert` and put it on `PATH`, or set `predict.osmconvert` in `config/paths.yaml` to the binary path. The AWS CLI is used to download public coherence tiles (`aws s3 cp --no-sign-request`); no AWS credentials are required. They are used by `scripts/predict_region.py` and by the training-data prep scripts.
+Optional Jupyter kernel for the notebooks:
 
-OpenStreetMap **`.osm.pbf`** extracts are **not** downloaded by the repository scripts. Download them yourself from [Geofabrik](https://download.geofabrik.de/) (for example the Netherlands extract for training, or a regional extract such as Silesia for the default predict example). The published training data used a Geofabrik Netherlands build from **26 October 2023**; you may reuse that snapshot or download a newer file — infrastructure rasters may differ slightly if OSM has changed.
+```bash
+poetry install --with dev
+```
+
+`osmconvert` and the AWS CLI are external programs. Install `osmconvert` and put it on `PATH`, or set `predict.osmconvert` in `config/paths.yaml` to the binary path. The AWS CLI is used to download public coherence tiles (`aws s3 cp --no-sign-request`); no AWS credentials are required.
+
+OpenStreetMap **`.osm.pbf`** extracts are **not** downloaded by the repository scripts. Download them yourself from [Geofabrik](https://download.geofabrik.de/). The published training data used a Geofabrik Netherlands build from **26 October 2023**.
 
 ## Configuration
 
-File paths live in `config/paths.yaml`. The committed template is `config/paths.example.yaml`.
+File paths are defined in `config/paths.yaml`. The committed template is `config/paths.example.yaml`. Change values there rather than in scripts.
+
+**Setup (first time):**
 
 ```bash
 cp config/paths.example.yaml config/paths.yaml
-# Edit data_root so it points at your raster directory
+# Edit config/paths.yaml and set data_root to the extracted Zenodo directory
 ```
 
-Override the root without editing the file:
+**Quick override** (without editing the file):
 
 ```bash
-export PREDICTPS_DATA_ROOT=/path/to/data
+export PREDICTPS_DATA_ROOT=/path/to/extracted_zenodo_archive
 ```
 
-Use a different YAML file:
+**Custom config file:**
 
 ```bash
 export PREDICTPS_PATHS_FILE=/path/to/my_paths.yaml
 ```
 
-`config/paths.yaml` is gitignored. `data/` contents are gitignored except this repository's placeholder files. Do not commit rasters, checkpoints, or `.venv/`.
+`config/paths.yaml` is gitignored. Rasters, checkpoints, and `.venv/` are not committed.
 
-TorchGeo accepts one GeoTIFF or a directory of `*.tif` files. Coherence for train and test is the `tiles/` directory of 1×1 degree GeoTIFFs. TorchGeo indexes every tile in that folder, and `random_bbox_splitting` takes 70% / 15% / 15% of **each** file. That is the paper split. Pointing coherence at the single mosaic makes the whole Netherlands one file, so the same fractions cover different ground and the test MAE changes (86 batches and about 0.84, instead of 97 batches and 1.19 for seed 54321). OSM and the EGMS mask stay one GeoTIFF each. The paper script (`scripts/data_analysis_for_the_first_paper.py`) is separate: it opens individual GeoTIFFs with PIL.
+TorchGeo accepts one GeoTIFF or a directory of `*.tif` files. Coherence for train and test is the `tiles/` directory of 1×1 degree GeoTIFFs. TorchGeo indexes every tile in that folder, and `random_bbox_splitting` takes 70% / 15% / 15% of **each** file. That is the paper split. Pointing coherence at the single mosaic makes the whole Netherlands one file, so the same fractions cover different ground and the test MAE changes (86 batches and about 0.84, instead of 97 batches and 1.19 for seed 54321). OSM and the EGMS mask stay one GeoTIFF each.
 
 `config/paths.yaml` is grouped by workflow (`prepare`, `train`, `test`, `predict`, `paper`). Fill only the block for the script you are running. Train and test share the coherence tiles directory and the OSM and EGMS mask files.
 
+**In Python scripts or notebooks:**
+
+```python
+from ps_density.config.paths import load_paths
+
+cfg = load_paths()
+coherence_tiles = cfg.train.input.coherence_summer
+osm_tif = cfg.train.input.osm
+mask_tif = cfg.train.input.mask_egms
+```
+
 ## Required inputs
 
-Set `data_root` before running a script. Nothing below is in git.
+Before running a step, set `data_root` in `config/paths.yaml` (or `PREDICTPS_DATA_ROOT`) to the extracted Zenodo directory. Paths match `config/paths.example.yaml`. Nothing below is in git.
 
 ### Prepare training inputs
 
-The `prepare:` block sets `aoi_lon` / `aoi_lat` (same idea as predict), `prepare.osm_pbf`, and EGMS paths. 1×1 degree tiles are derived from that box. Optional `exclude_tiles` lists south-west corners to skip, or use `exclude_tiles: []` for the full rectangle. `prepare_coherence.py` writes those tiles into `train.input.coherence_summer` when that path is a directory, and writes the mosaic next to it (`summer_vv_rho.tif`). Train and test must keep pointing at the tiles directory. The OSM mosaic is written to `train.input.osm`; its per-tile rasters go in `tiles/` beside that file and are not read during training. The EGMS density raster is written by QGIS to `train.input.mask_egms`.
+| Path / setting | Used in |
+| --- | --- |
+| `prepare.aoi_lon`, `prepare.aoi_lat`, optional `exclude_tiles` | Coherence and OSM tile lists |
+| `prepare.osm_pbf` | OSM clip/rasterize (one `.osm.pbf` or a directory of them) |
+| `prepare.egms_links_txt` | EGMS link-list filter |
+| `prepare.egms_shp_dir` | EGMS shapefile merge |
+| `train.input.coherence_summer` | Directory of 1×1 degree tiles written by prepare_coherence |
+| `train.input.osm` | Mosaic written by prepare_osm |
+| `train.input.mask_egms` | Density GeoTIFF written in QGIS after prepare_egms |
+
+The Zenodo deposit includes `OSM_combined.tif`, the infrastructure raster used for training. It also includes three Geofabrik extracts from 26 October 2023 so the preparation script can be tried: `netherlands-latest.osm.pbf`, `drenthe-latest.osm.pbf`, and `nordrhein-westfalen-latest.osm.pbf`. These extracts and the raster are derived from OpenStreetMap data © OpenStreetMap contributors, available under the Open Database License.
+
+### Train
+
+| Path | Used in |
+| --- | --- |
+| `train.input.coherence_summer` | 1×1 tiles directory |
+| `train.input.osm` | Infrastructure GeoTIFF |
+| `train.input.mask_egms` | EGMS density GeoTIFF |
+| CUDA GPU | Lightning trainer |
+
+### Test on the Netherlands (and Rome)
+
+| Path | Used in |
+| --- | --- |
+| `test.input.coherence_summer`, `osm`, `mask_egms` | Same stack as training |
+| `test.checkpoint` | Local `.ckpt`, or empty to download from Hugging Face (`dominika-malinowska/ps_predictions`) |
+| `test.checkpoints.one_channel` | One-channel comparison (local file) |
+| `test.input.google_satellite_dir` | Optional RGB context for review plots |
+| `test.rome.*` | Rome transfer rasters and plot directory |
+
+With the 20 Netherlands tiles, seed 54321, and the paper checkpoint, the test loader has 97 batches and `test_MAE` is 1.193.
+
+### Predict one 1×1 degree tile
+
+| Path | Used in |
+| --- | --- |
+| `predict.aoi_lon`, `predict.aoi_lat` | Area of interest (must sit inside one 1×1 degree tile) |
+| `predict.osm_pbf_name` | Geofabrik `.pbf` placed in the experiment directory |
+| `predict.checkpoint` | Local trained model |
+| `predict.osmconvert` | osmconvert binary |
+| AWS CLI | Public coherence download |
+| CUDA GPU | Inference |
+
+### Paper figures
+
+The `paper:` block is not required to train or predict. `ps_density.pipeline.data_analysis_for_the_first_paper` writes to `paper.plots_dir` and reads single GeoTIFFs under `data_root` (seasonal coherence mosaics, EGMS mask, NDVI, OSM class rasters, merged predictions, water/land mask, Rome mask, and shapefiles under `EGMS_data_for_paper_plots/`). See the script for the exact file names.
+
+## Running the pipeline
+
+Run every step from the repository root after `poetry install` and after `data_root` is set:
 
 ```bash
-poetry run python scripts/prepare_data/prepare_coherence.py
-poetry run python scripts/prepare_data/prepare_osm.py
+poetry run python -m ps_density.<package>.<module>
 ```
 
-`prepare_coherence.py` downloads `summer_vv_rho` tiles from the public Sentinel-1 global coherence bucket and mosaics them. Pass `--season`, `--polarisation`, or `--metric` to change the product.
+### Prepare training rasters
 
-`prepare_osm.py` clips `prepare.osm_pbf` per tile with `osmconvert`, rasterizes buildings/roads/rail with the same values as `scripts/predict_region.py`, and mosaics the tiles. `prepare.osm_pbf` may be one **`.osm.pbf`** or a directory of them. `osmconvert` accepts only one `.pbf` per call, so each extra extract is converted to `.o5m` once and the tile clip merges those files. A tile that crosses a country border is filled from all of them. Download the extracts from [Geofabrik](https://download.geofabrik.de/) yourself. The script does not fetch them.
+**Step 1.** `prepare_data.prepare_coherence` — Downloads `summer_vv_rho` tiles from the public Sentinel-1 global coherence bucket and mosaics them. Pass `--season`, `--polarisation`, or `--metric` to change the product.
 
-The Zenodo deposit includes `OSM_combined.tif`, the infrastructure raster used for training. Per-tile GeoTIFFs are not included. It also includes three Geofabrik extracts from 26 October 2023 so the preparation script can be tried: `netherlands-latest.osm.pbf`, `drenthe-latest.osm.pbf`, and `nordrhein-westfalen-latest.osm.pbf`. Drenthe is already covered by the Netherlands extract. Belgium and the other German states used for the full raster are omitted because of file size. Download any further `.osm.pbf` files from [Geofabrik](https://download.geofabrik.de/). These extracts and the raster are derived from OpenStreetMap data © OpenStreetMap contributors, available under the Open Database License.
-
-Open `scripts/prepare_data/prepare_egms.ipynb` in the Poetry environment. Automated cells filter the EGMS link list and merge split shapefiles. The EGMS website download and the QGIS density conversion stay manual (see the notebook). Training reads the coherence tiles directory plus the OSM and EGMS GeoTIFFs named in `train.input`. This notebook does not produce the mask raster.
-
-### Train (`scripts/train.py`, `notebooks/train.ipynb`)
-
-Only the `train:` block is required.
-
-- `train.input.coherence_summer` — directory of 1×1 degree tiles, default `{data_root}/input/coherence_summer_NL/summer_vv_rho/tiles`. TorchGeo reads every `*.tif` in it. Do not point this at `summer_vv_rho.tif`.
-- `train.input.osm` — one infrastructure GeoTIFF, default `{data_root}/input/OSM_input_updated/OSM_combined.tif`
-- `train.input.mask_egms` — one EGMS density GeoTIFF, default `{data_root}/input/mask/mask_EGMS/r_nb_pts_max_all.tif`
-- a CUDA GPU
-
-The Netherlands bounding box (longitude 3–8, latitude 50–54), patch size, and learning-rate settings stay in the script.
-
-Checkpoints are written under `train.output.training_dir` / `train.output.experiment_name` (default `{data_root}/trainingnn_results/pixel_wise_regression_model_training_updated_OSM/`). TensorBoard logs go in that experiment's `logs/` directory.
-
-### Test on the Netherlands (`scripts/test_predict.py`, `notebooks/test_predict.ipynb`)
-
-The `test:` block uses the same coherence tiles directory and the same OSM and mask files as training. With the 20 Netherlands tiles, seed 54321, and the paper checkpoint, the test loader has 97 batches and `test_MAE` is 1.193. The 2-channel paper model is downloaded from Hugging Face (`dominika-malinowska/ps_predictions`, file `seed_54321_20231214-203338.ckpt`) unless you set `test.checkpoint` to a local `.ckpt`. Also:
-
-- `test.checkpoints.one_channel` — default `{data_root}/input/nn_models/one_input_channel/seed_54321_20231218-105437.ckpt` for the one-channel comparison (local file; not on Hugging Face)
-- optional plot context: `test.input.google_satellite_dir` — `{data_root}/input/Google_satellite/*.tif`
-
-Outputs go under `test.output.revision_results_dir` / `test.output.experiment_name`. Review plots go under `test.output.plots_review_dir`.
-
-### Rome block in `scripts/test_predict.py`
-
-The nested `test.rome:` keys:
-
-- `test.rome.coherence_dir` — `{data_root}/input/Italy/coh_Rome_cropped/`
-- `test.rome.osm_dir` — `{data_root}/input/Italy/OSM_Rome_combined/`
-- `test.rome.mask_dir` — `{data_root}/input/Italy/SNT/msk/`
-- `test.rome.google_satellite_dir` — `{data_root}/input/Italy/Google_satellite/`
-- `test.rome.plots_review_dir` — `{data_root}/plots_review_Rome/`
-
-### Predict one 1×1 degree tile (`scripts/predict_region.py`, `notebooks/predict_region.ipynb`)
-
-Only the `predict:` block.
-
-- `predict.checkpoint` — default `{data_root}/best_models_15122023/seed_54321_20231214-203338.ckpt`
-- an OSM **`.pbf`** from [Geofabrik](https://download.geofabrik.de/) that covers your AOI (for the default Silesia example, a regional extract such as `slaskie-latest.osm.pbf`). Place it in the experiment directory (`predict.output.revision_results_dir` / `predict.output.experiment_name`) with the name given by `predict.osm_pbf_name`. The script does not download it; it only runs `osmconvert` and rasterization.
-- `osmconvert` on `PATH` (or `predict.osmconvert` in `paths.yaml`)
-- the AWS CLI, for the public Sentinel-1 global coherence download
-- a CUDA GPU
-
-The example area of interest is Silesia (`predict.aoi_lon`, `predict.aoi_lat`). The region must sit inside one 1×1 degree tile. Coherence season is summer in the northern hemisphere and winter in the southern hemisphere.
-
-### Paper figures only
-
-The `paper:` block is not required to train or predict. `scripts/data_analysis_for_the_first_paper.py` writes to `paper.plots_dir` and reads these single GeoTIFFs under `data_root`:
-
-- `input/global_coh_NL/{summer,spring,fall,winter}_vv_rho.tif`
-- `input/mask/mask_EGMS/r_nb_pts_max_all.tif`
-- `input/ndvi_gee/new/mean_ndvi_S2_wi_nan_filled_resized.tif`
-- `input/ndvi_gee/new/mean_ndvi_S2_su_nan_filled_resized.tif`
-- `input/ndvi_gee/new/std_ndvi_S2_wi_nan_filled_resized.tif`
-- `input/ndvi_gee/new/std_ndvi_S2_su_nan_filled_resized.tif`
-- `OSM_buildings/buildings.tif`, `railway.tif`, `highway.tif`, `highway_motorway.tif`, `highway_trunk.tif`, `highway_primary.tif`, `highway_secondary.tif`
-- `input/OSM_input_channel_v2/OSM_combined_v2.tif`
-- `merged_prediction_fixed_stiching_20240607_204020.tif`
-- `water_land_mask.tif`
-- `input/Italy/SNT/msk/Rome_nb_pts_des_cropped.tif`
-- `merged_prediction_fixed_stiching_Rome_20240610_123734.tif`
-- shapefiles under `EGMS_data_for_paper_plots/`
-
-Plots are written to `paper.plots_dir` (default `{data_root}/plots_paper_final_version/`).
-
-## Run
-
-From the repository root, after `poetry install` and after `data_root` is set.
-
-**Recreate the pipeline** (no interactive figures). These scripts run from top to bottom. They are not library modules.
+**Input:** `prepare.aoi_*`, AWS CLI. **Output:** tiles in `train.input.coherence_summer` and a mosaic beside that directory.
 
 ```bash
-poetry run python scripts/train.py
-poetry run python scripts/test_predict.py
-poetry run python scripts/predict_region.py
-poetry run python scripts/data_analysis_for_the_first_paper.py
+poetry run python -m ps_density.prepare_data.prepare_coherence
 ```
 
-Paper figures come only from `scripts/data_analysis_for_the_first_paper.py`.
+**Step 2.** `prepare_data.prepare_osm` — Clips `prepare.osm_pbf` per tile with `osmconvert`, rasterizes buildings/roads/rail, and mosaics the tiles. The script does not fetch Geofabrik extracts.
 
-**Inspect rasters, sampling, or a few predictions, or change a seed or area of interest before a long run.** Open these notebooks in the Poetry environment (`poetry install --with dev` installs the Jupyter kernel):
+**Input:** `prepare.osm_pbf`, `osmconvert`. **Output:** `train.input.osm`.
 
-- `notebooks/train.ipynb` — input stack, sampling map, optional training
-- `notebooks/test_predict.ipynb` — a few test patches, optional Rome patch
-- `notebooks/predict_region.ipynb` — infrastructure and coherence previews, then prediction
+```bash
+poetry run python -m ps_density.prepare_data.prepare_osm
+```
 
-The notebooks call `ps_density`. They do not redefine the model or the raster readers. Skip the training or prediction cells if you only want the plots.
+**Step 3.** `prepare_data/prepare_egms.ipynb` — Filters the EGMS link list and merges split shapefiles. The EGMS website download and the QGIS density conversion stay manual (see the notebook). Training reads the GeoTIFF named in `train.input.mask_egms`.
 
-A data-free check:
+Open the notebook in the Poetry environment (`poetry install --with dev`).
+
+### Train
+
+**Step 4.** `pipeline.train` — Trains the 2-channel U-Net (coherence + OSM) on the Netherlands stack.
+
+**Input:** `train.input.*`, CUDA GPU. **Output:** checkpoints under `train.output.training_dir` / `train.output.experiment_name`. TensorBoard logs go in that experiment's `logs/` directory.
+
+```bash
+poetry run python -m ps_density.pipeline.train
+```
+
+Inspect the stack first in `src/ps_density/pipeline/notebooks/train.ipynb`.
+
+### Test
+
+**Step 5.** `pipeline.test_predict` — Netherlands test MAE, review plots, one-channel comparison, and Rome transfer.
+
+**Input:** `test.input.*`, paper checkpoint, optional Rome rasters. **Output:** `test.output.plots_review_dir`, merged prediction GeoTIFFs under `data_root`, Rome plots under `test.rome.plots_review_dir`.
+
+```bash
+poetry run python -m ps_density.pipeline.test_predict
+```
+
+Inspect a few patches in `src/ps_density/pipeline/notebooks/test_predict.ipynb`.
+
+### Predict a new region
+
+**Step 6.** `pipeline.predict_region` — Predicts one new 1×1 degree tile. Coherence season is summer in the northern hemisphere and winter in the southern hemisphere.
+
+**Input:** OSM `.pbf` in the experiment directory, `predict.checkpoint`, osmconvert, AWS CLI, CUDA GPU. **Output:** `{lat}{lon}_PS_pred.tif` under the experiment directory.
+
+```bash
+poetry run python -m ps_density.pipeline.predict_region
+```
+
+Preview inputs in `src/ps_density/pipeline/notebooks/predict_region.ipynb`.
+
+### Paper figures
+
+**Step 7.** `pipeline.data_analysis_for_the_first_paper` — Writes EPS figures to `paper.plots_dir`.
+
+```bash
+poetry run python -m ps_density.pipeline.data_analysis_for_the_first_paper
+```
+
+A data-free import check:
 
 ```bash
 poetry run python -c "import ps_density"
-poetry run python -m py_compile scripts/train.py scripts/test_predict.py scripts/predict_region.py scripts/data_analysis_for_the_first_paper.py scripts/prepare_data/prepare_coherence.py scripts/prepare_data/prepare_osm.py
+```
+
+## Pipeline overview
+
+```mermaid
+flowchart TD
+    A[Geofabrik OSM PBF] --> B[prepare_osm]
+    C[Sentinel-1 coherence S3] --> D[prepare_coherence]
+    E[EGMS points] --> F[prepare_egms notebook plus QGIS]
+    B --> G[pipeline.train]
+    D --> G
+    F --> G
+    G --> H[pipeline.test_predict]
+    G --> I[pipeline.predict_region]
+    H --> J[data_analysis_for_the_first_paper]
 ```
 
 ## Repository structure
 
 ```text
-config/paths.example.yaml          # path template (committed)
-config/paths.yaml                  # your local paths (gitignored)
-src/ps_density/                    # library: datasets, Lightning task, OSM prep, plots, path loader
-scripts/train.py                   # train on the Netherlands stack
-scripts/test_predict.py            # test, Netherlands maps, Rome transfer
-scripts/predict_region.py          # predict one new 1x1 degree tile
-scripts/data_analysis_for_the_first_paper.py
-scripts/prepare_data/prepare_coherence.py
-scripts/prepare_data/prepare_osm.py
-scripts/prepare_data/prepare_egms.ipynb
-notebooks/train.ipynb              # optional plots and parameter edits for training
-notebooks/test_predict.ipynb       # optional prediction-patch plots
-notebooks/predict_region.ipynb     # optional regional-prediction plots
-data/                              # optional local data root; rasters are not committed
+src/ps_density/
+├── config/                         # Path configuration loader
+├── utils/                          # Shared helpers (not run directly)
+├── pipeline/                       # Train, test, predict, paper figures
+│   └── notebooks/                  # Optional plots for the same steps
+└── prepare_data/                   # Coherence download, OSM rasterize, EGMS notebook
+
+config/paths.example.yaml           # Path template (committed)
+config/paths.yaml                   # Your local paths (gitignored)
+data/                               # Optional local data root; rasters are not committed
 ```
 
-`src/ps_density/coordinates_selection.py` is an interactive latitude/longitude helper. The scripts do not call it.
+### Modules that are not run directly
+
+These are imported by pipeline scripts; do not invoke them with `poetry run python -m ...`:
+
+| Location | Purpose |
+| --- | --- |
+| `utils/model_setup.py` | Lightning trainer and datamodule setup |
+| `utils/model_checkpoint.py` | Hugging Face or local paper checkpoint |
+| `utils/torchgeo_classes_def.py` | U-Net regression task and GeoDataModule |
+| `utils/torchgeo_fun_to_read_input.py` | Raster dataset classes and coherence scaling |
+| `utils/preprocessing_OSM_data.py` | osmconvert clip and infrastructure value map |
+| `utils/prediction_plots.py` | Georeferenced chips, mosaic merge, review plots |
+| `utils/sampling_maps.py` | Train/val/test chip map |
+| `utils/plotting_scatter_with_3rd_dim.py` | Density scatter plots for paper figures |
+| `utils/coordinates_selection.py` | Interactive AOI helper; pipeline uses `haversine_distance` |
+| `config/paths.py` | Loads `config/paths.yaml` |
+
+## Pipeline I/O reference
+
+| Step | Script | Reads | Writes |
+| --- | --- | --- | --- |
+| 1 | `prepare_data.prepare_coherence` | `prepare.aoi_*`, public S3 tiles | `train.input.coherence_summer` tiles and mosaic |
+| 2 | `prepare_data.prepare_osm` | `prepare.osm_pbf` | `train.input.osm` |
+| 3 | `prepare_data/prepare_egms.ipynb` | `prepare.egms_links_txt`, `prepare.egms_shp_dir` | filtered link list, merged shapefiles; QGIS writes `train.input.mask_egms` |
+| 4 | `pipeline.train` | `train.input.*` | checkpoints under `train.output.*` |
+| 5 | `pipeline.test_predict` | `test.input.*`, checkpoint, optional `test.rome.*` | review plots, Netherlands and Rome GeoTIFFs |
+| 6 | `pipeline.predict_region` | `predict.*`, OSM PBF, public coherence tile | `{lat}{lon}_PS_pred.tif` |
+| 7 | `pipeline.data_analysis_for_the_first_paper` | GeoTIFFs under `data_root` | `paper.plots_dir` EPS figures |
+
+## Paper figures
+
+Paper figures live in `paper.plots_dir` (default `{data_root}/plots_paper_final_version/`). They are written only by `pipeline.data_analysis_for_the_first_paper`.
+
+| Paper figure | Output file | Step |
+| --- | --- | --- |
+| Fig. 3a | `fig3a.eps` | 7 |
+| Fig. 4a–f | `fig4a.eps` … `fig4f.eps` | 7 |
+| Fig. 6a | `fig6a.eps` | 7 |
+| Fig. 8 | `fig8*.eps` | 7 |
+| Fig. 9 | `fig9.eps` | 7 |
+| Fig. 10 | `fig10.eps` | 7 |
+| Fig. 13e–f | `fig13e.eps`, `fig13f.eps` | 7 |
+| Supplementary regressions | `linear_regression_1in.eps`, `poly_regression_1in.eps` | 7 |
+
+Review JPEGs from `pipeline.test_predict` (`model_pred_b{batch}_{i}.jpg`) go to `test.output.plots_review_dir` and are not the paper EPS set.
+
+## External dependencies
+
+- `osmconvert` on `PATH` (or `predict.osmconvert`)
+- AWS CLI, for public Sentinel-1 global coherence (`aws s3 cp --no-sign-request`)
+- Geofabrik [`.osm.pbf`](https://download.geofabrik.de/) extracts
+- EGMS portal download and QGIS density conversion
+- Hugging Face checkpoint `dominika-malinowska/ps_predictions` (`seed_54321_20231214-203338.ckpt`) unless `test.checkpoint` points at a local file
 
 ## License
 

@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: If you use this software, please cite the paper and the research data.
+title: PredictPS
+authors:
+  - family-names: Malinowska
+    given-names: Dominika
+    email: dominika.u.malinowska@gmail.com
+license: MIT
+repository-code: https://github.com/SafeStruct/PredictPS
+type: software
+identifiers:
+  - type: doi
+    value: ""
+    description: Paper DOI (to be added)
+  - type: doi
+    value: ""
+    description: Zenodo research data DOI (to be added)
+preferred-citation:
+  type: article
+  title: ""
+  authors:
+    - family-names: Malinowska
+      given-names: Dominika
+  doi: ""
+  year: 2026

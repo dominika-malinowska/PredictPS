@@ -27,6 +27,14 @@ except ImportError:  # pragma: no cover - cartopy is a project dependency
 
 
 def _box_polygon(box) -> Polygon:
+    """Convert a TorchGeo bounding box to a shapely polygon.
+
+    Args:
+        box: Object with ``minx``/``maxx``/``miny``/``maxy``, or a 4-tuple.
+
+    Returns:
+        Polygon in the box CRS.
+    """
     if hasattr(box, "minx"):
         minx, maxx, miny, maxy = box.minx, box.maxx, box.miny, box.maxy
     else:
@@ -66,7 +74,7 @@ def plot_sampling_map(
     Chip colours: train blue, validation red, test green. The rectangles are
     the sampled chip footprints, not hand-drawn split regions.
 
-    Arguments:
+    Args:
         dataset: TorchGeo intersection dataset used for training.
         seed: Split and sampler seed.
         patch_size: Chip size in pixels.

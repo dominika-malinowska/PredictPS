@@ -13,8 +13,8 @@ from geocube.rasterize import rasterize_image
 from rasterio.merge import merge
 from shapely.geometry import box, mapping
 
-from ps_density.paths import format_degree_tile, load_paths, prepare_tiles
-from ps_density.preprocessing_OSM_data import (
+from ps_density.config.paths import format_degree_tile, load_paths, prepare_tiles
+from ps_density.utils.preprocessing_OSM_data import (
     BuildRoadRailHandler,
     convert_osm_osmconvert,
     map_value,
@@ -22,6 +22,12 @@ from ps_density.preprocessing_OSM_data import (
 
 
 def mosaic_tifs(tile_paths, output_path):
+    """Merge per-tile infrastructure GeoTIFFs.
+
+    Args:
+        tile_paths: Paths of rasterized tiles.
+        output_path: Destination mosaic GeoTIFF.
+    """
     sources = [rasterio.open(path) for path in tile_paths]
     try:
         mosaic, transform = merge(sources)
@@ -44,6 +50,16 @@ def mosaic_tifs(tile_paths, output_path):
 
 
 def rasterize_tile(o5m_path, west, south, east, north, output_path):
+    """Rasterize buildings, roads, and rail from a clipped OSM file.
+
+    Args:
+        o5m_path: Clipped OSM file from osmconvert.
+        west, south, east, north: Tile bounds in WGS84 degrees.
+        output_path: Output GeoTIFF.
+
+    Returns:
+        True if a raster was written, False if the tile had no features.
+    """
     handler = BuildRoadRailHandler()
     handler.apply_file(str(o5m_path), locations=True, idx="flex_mem")
 
@@ -99,6 +115,7 @@ def osm_pbf_inputs(osm_pbf):
 
 
 def main():
+    """Clip OSM extracts per 1x1 tile, rasterize infrastructure, and mosaic."""
     cfg = load_paths()
     osm_pbfs = osm_pbf_inputs(cfg.prepare.osm_pbf)
     print("OSM extracts:")

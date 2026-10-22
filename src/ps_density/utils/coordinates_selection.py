@@ -1,18 +1,4 @@
-"""
-This module contains functions for handling coordinates selection and 
-generating a list of coordinate pairs based on user input.
-
-Functions:
-- input_int_lat(message: str) -> int: Ensures that the user inputs 
-an integer within the range of -90 to 90 for latitude.
-- input_int_lon(message: str) -> int: Ensures that the user inputs 
-an integer within the range of -180 to 180 for longitude.
-- get_coordinates() -> List: Asks users to select how they want to define 
-the Area of Interest (AOI) and generates a list of coordinate pairs representing 
-the latitude and longitude values for the region based on the user's input.
-- haversine_distance: Great-circle distance between two lat/lon points, in kilometres.
-
-"""
+"""Interactive AOI helpers and great-circle distance in kilometres."""
 
 import itertools
 import math
@@ -30,7 +16,7 @@ import numpy as np
 def haversine_distance(lat1, lon1, lat2, lon2):
     """Great-circle distance between two points, in kilometres.
 
-    Arguments:
+    Args:
         lat1 (float): Latitude of the first point in degrees.
         lon1 (float): Longitude of the first point in degrees.
         lat2 (float): Latitude of the second point in degrees.
@@ -57,7 +43,7 @@ def input_int_lat(message: str) -> int:
     """
     The function ensures that the user inputs an integer within the range of -90 to 90.
 
-    Parameters:
+    Args:
         message (str): The message to be displayed to the user.
 
     Returns:
@@ -82,7 +68,7 @@ def input_int_lon(message: str) -> int:
     """
     The function ensures that the user inputs an integer within the range of -180 to 180.
 
-    Parameters:
+    Args:
         message (str): The message to be displayed to the user.
 
     Returns:
@@ -126,7 +112,7 @@ def get_coordinates():
     The function then generates a list of coordinate pairs representing the latitude and longitude
     values for the region based on the user's input.
 
-    Parameters:
+    Args:
         None
 
     Returns:

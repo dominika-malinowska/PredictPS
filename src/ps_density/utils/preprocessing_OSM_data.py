@@ -1,14 +1,5 @@
-"""
-This script 
-"""
+"""Clip OSM extracts with osmconvert and map infrastructure types to raster values."""
 
-# check Python version (3.9 needed)
-# !python --version # jupyter
-import platform
-
-print(platform.python_version())
-
-# Import modules
 import os
 import subprocess
 from pathlib import Path
@@ -26,7 +17,7 @@ class BuildRoadRailHandler(osmium.SimpleHandler):
     This class is used to handle OSM data. It extends the SimpleHandler class from the osmium package.
     It extracts buildings, roads, and railways from the OSM data.
 
-    Arguments:
+    Args:
         osmium.SimpleHandler: The parent class for handling OSM data
 
     Returns:
@@ -50,7 +41,7 @@ class BuildRoadRailHandler(osmium.SimpleHandler):
         This method is called for each area in the OSM data.
         If the area is a building, it is added to the buildings list.
 
-        Arguments:
+        Args:
             a (osmium.osm.Area): An area in the OSM data
 
         Returns:
@@ -77,7 +68,7 @@ class BuildRoadRailHandler(osmium.SimpleHandler):
         This method is called for each way in the OSM data.
         If the way is a road or a railway, it is added to the corresponding list.
 
-        Arguments:
+        Args:
             w (osmium.osm.Way): A way in the OSM data
 
         Returns:
@@ -156,7 +147,7 @@ def convert_osm_osmconvert(
     and clipped together. Border objects that appear in more than one extract
     are kept; rasterization paints the same value again.
 
-    Arguments:
+    Args:
         input_osm_path (str or sequence): One OSM path, or several paths
             that together cover the clip.
         output_osm_path (str): The path to the output OSM file
@@ -181,7 +172,7 @@ def convert_osm_osmconvert(
         raise ValueError("No OSM inputs were given to osmconvert")
 
     if osmconvert_bin is None:
-        from ps_density.paths import load_paths
+        from ps_density.config.paths import load_paths
 
         osmconvert_bin = load_paths().predict.osmconvert
 
@@ -216,7 +207,7 @@ def map_value(row):
     This function takes a row of a DataFrame and returns a value based on the 'type' column.
     If the 'type' is not recognized, it returns None.
 
-    Parameters:
+    Args:
         row (pandas.Series): A row of a DataFrame.
 
     Returns:
