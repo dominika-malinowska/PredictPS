@@ -109,6 +109,7 @@ The Zenodo deposit includes `OSM_combined.tif`, the infrastructure raster used f
 | `train.input.coherence_summer` | 1×1 tiles directory |
 | `train.input.osm` | Infrastructure GeoTIFF |
 | `train.input.mask_egms` | EGMS density GeoTIFF |
+| `train.output.results_dir` | Checkpoints and TensorBoard logs |
 | CUDA GPU | Lightning trainer |
 
 ### Test on the Netherlands (and Rome)
@@ -119,7 +120,9 @@ The Zenodo deposit includes `OSM_combined.tif`, the infrastructure raster used f
 | `test.checkpoint` | Local `.ckpt`, or empty to download from Hugging Face (`dominika-malinowska/ps_predictions`) |
 | `test.checkpoints.one_channel` | One-channel comparison (local file) |
 | `test.input.google_satellite_dir` | Optional RGB context for review plots |
-| `test.rome.*` | Rome transfer rasters and plot directory |
+| `test.output.results_dir` | Netherlands test GeoTIFF |
+| `test.output.plots_dir` | Netherlands review JPEGs |
+| `test.rome.*` | Rome transfer rasters, `results_dir`, and `plots_dir` |
 
 With the 20 Netherlands tiles, seed 54321, and the paper checkpoint, the test loader has 97 batches and `test_MAE` is 1.193.
 
@@ -128,9 +131,10 @@ With the 20 Netherlands tiles, seed 54321, and the paper checkpoint, the test lo
 | Path | Used in |
 | --- | --- |
 | `predict.aoi_lon`, `predict.aoi_lat` | Area of interest (must sit inside one 1×1 degree tile) |
-| `predict.osm_pbf_name` | Geofabrik `.pbf` placed in the experiment directory |
-| `predict.checkpoint` | Local trained model |
+| `predict.osm_pbf` | Geofabrik `.pbf` for the area of interest (not downloaded) |
+| `predict.checkpoint` | Local `.ckpt`, or empty to download from Hugging Face (`dominika-malinowska/ps_predictions`) |
 | `predict.osmconvert` | osmconvert binary |
+| `predict.output.results_dir` | Tile folder and `{lat}{lon}_PS_pred.tif` |
 | AWS CLI | Public coherence download |
 | CUDA GPU | Inference |
 
@@ -172,7 +176,7 @@ Open the notebook in the Poetry environment (`poetry install --with dev`).
 
 **Step 4.** `pipeline.train` — Trains the 2-channel U-Net (coherence + OSM) on the Netherlands stack.
 
-**Input:** `train.input.*`, CUDA GPU. **Output:** checkpoints under `train.output.training_dir` / `train.output.experiment_name`. TensorBoard logs go in that experiment's `logs/` directory.
+**Input:** `train.input.*`, CUDA GPU. **Output:** checkpoints under `train.output.results_dir`. TensorBoard logs go in that directory's `logs/` folder.
 
 ```bash
 poetry run python -m ps_density.pipeline.train
@@ -184,7 +188,7 @@ Inspect the stack first in `src/ps_density/pipeline/notebooks/train.ipynb`.
 
 **Step 5.** `pipeline.test_predict` — Netherlands test MAE, review plots, one-channel comparison, and Rome transfer.
 
-**Input:** `test.input.*`, paper checkpoint, optional Rome rasters. **Output:** `test.output.plots_review_dir`, merged prediction GeoTIFFs under `data_root`, Rome plots under `test.rome.plots_review_dir`.
+**Input:** `test.input.*`, paper checkpoint, optional Rome rasters. **Output:** `test.output.results_dir`, review plots in `test.output.plots_dir`, Rome GeoTIFFs in `test.rome.results_dir`, Rome plots in `test.rome.plots_dir`.
 
 ```bash
 poetry run python -m ps_density.pipeline.test_predict
@@ -196,7 +200,7 @@ Inspect a few patches in `src/ps_density/pipeline/notebooks/test_predict.ipynb`.
 
 **Step 6.** `pipeline.predict_region` — Predicts one new 1×1 degree tile. Coherence season is summer in the northern hemisphere and winter in the southern hemisphere.
 
-**Input:** OSM `.pbf` in the experiment directory, `predict.checkpoint`, osmconvert, AWS CLI, CUDA GPU. **Output:** `{lat}{lon}_PS_pred.tif` under the experiment directory.
+**Input:** `predict.osm_pbf`, paper checkpoint (Hugging Face unless `predict.checkpoint` is set), osmconvert, AWS CLI, CUDA GPU. **Output:** `{lat}{lon}_PS_pred.tif` under `predict.output.results_dir`.
 
 ```bash
 poetry run python -m ps_density.pipeline.predict_region
@@ -272,14 +276,14 @@ These are imported by pipeline scripts; do not invoke them with `poetry run pyth
 | 1 | `prepare_data.prepare_coherence` | `prepare.aoi_*`, public S3 tiles | `train.input.coherence_summer` tiles and mosaic |
 | 2 | `prepare_data.prepare_osm` | `prepare.osm_pbf` | `train.input.osm` |
 | 3 | `prepare_data/prepare_egms.ipynb` | `prepare.egms_links_txt`, `prepare.egms_shp_dir` | filtered link list, merged shapefiles; QGIS writes `train.input.mask_egms` |
-| 4 | `pipeline.train` | `train.input.*` | checkpoints under `train.output.*` |
-| 5 | `pipeline.test_predict` | `test.input.*`, checkpoint, optional `test.rome.*` | review plots, Netherlands and Rome GeoTIFFs |
-| 6 | `pipeline.predict_region` | `predict.*`, OSM PBF, public coherence tile | `{lat}{lon}_PS_pred.tif` |
+| 4 | `pipeline.train` | `train.input.*` | checkpoints under `train.output.results_dir` |
+| 5 | `pipeline.test_predict` | `test.input.*`, checkpoint, optional `test.rome.*` | `results_test` / `results_test_rome` GeoTIFFs and plots |
+| 6 | `pipeline.predict_region` | `predict.*`, OSM PBF, public coherence tile | `{lat}{lon}_PS_pred.tif` under `results_predict_region` |
 | 7 | `pipeline.data_analysis_for_the_first_paper` | GeoTIFFs under `data_root` | `paper.plots_dir` EPS figures |
 
 ## Paper figures
 
-Paper figures live in `paper.plots_dir` (default `{data_root}/plots_paper_final_version/`). They are written only by `pipeline.data_analysis_for_the_first_paper`.
+Paper figures live in `paper.plots_dir` (default `{data_root}/results_paper/`). They are written only by `pipeline.data_analysis_for_the_first_paper`.
 
 | Paper figure | Output file | Step |
 | --- | --- | --- |
@@ -292,7 +296,7 @@ Paper figures live in `paper.plots_dir` (default `{data_root}/plots_paper_final_
 | Fig. 13e–f | `fig13e.eps`, `fig13f.eps` | 7 |
 | Supplementary regressions | `linear_regression_1in.eps`, `poly_regression_1in.eps` | 7 |
 
-Review JPEGs from `pipeline.test_predict` (`model_pred_b{batch}_{i}.jpg`) go to `test.output.plots_review_dir` and are not the paper EPS set.
+Review JPEGs from `pipeline.test_predict` (`model_pred_b{batch}_{i}.jpg`) go to `test.output.plots_dir` and are not the paper EPS set.
 
 ## External dependencies
 
@@ -300,7 +304,7 @@ Review JPEGs from `pipeline.test_predict` (`model_pred_b{batch}_{i}.jpg`) go to 
 - AWS CLI, for public Sentinel-1 global coherence (`aws s3 cp --no-sign-request`)
 - Geofabrik [`.osm.pbf`](https://download.geofabrik.de/) extracts
 - EGMS portal download and QGIS density conversion
-- Hugging Face checkpoint `dominika-malinowska/ps_predictions` (`seed_54321_20231214-203338.ckpt`) unless `test.checkpoint` points at a local file
+- Hugging Face checkpoint `dominika-malinowska/ps_predictions` (`seed_54321_20231214-203338.ckpt`) unless `test.checkpoint` or `predict.checkpoint` points at a local file
 
 ## License
 

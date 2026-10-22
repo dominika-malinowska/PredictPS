@@ -49,6 +49,7 @@ from ps_density.utils.preprocessing_OSM_data import (
 )
 from ps_density.config.paths import load_paths
 from ps_density.utils.coordinates_selection import haversine_distance
+from ps_density.utils.model_checkpoint import resolve_paper_checkpoint
 
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
@@ -76,17 +77,12 @@ def main():
 
     ### Set-up variables ###
 
-    # Path for saving results (such as model checkpoints)
-    path_prefix = str(_cfg.predict.output.revision_results_dir)
-
-    experiment_name = _cfg.predict.output.experiment_name
-    experiment_dir = os.path.join(path_prefix, experiment_name)
+    experiment_dir = str(_cfg.predict.output.results_dir)
     # print(experiment_dir)
 
     os.makedirs(experiment_dir, exist_ok=True)
 
-    # Define the path for the clipped O5M file
-    clipped_osm_pbf = os.path.join(experiment_dir, _cfg.predict.osm_pbf_name)
+    osm_pbf = str(_cfg.predict.osm_pbf)
 
 
     ### Set-up model parameters ###
@@ -130,9 +126,9 @@ def main():
 
     ### Read trained model ###
 
-    # Read trained model
+    # 2-channel paper model from Hugging Face, or predict.checkpoint if set
     model = PixelwiseRegressionTask.load_from_checkpoint(
-        checkpoint_path=str(_cfg.predict.checkpoint)
+        checkpoint_path=resolve_paper_checkpoint(_cfg.predict.checkpoint)
     )
     plots_folder_name = "test_pred_54321_20231214_2in"
 
@@ -243,7 +239,7 @@ def main():
         # If the clipped O5M file does not exist, start the clipping process
         else:
             # Convert the osm pbf to o5m
-            convert_osm_osmconvert(clipped_osm_pbf, clipped_o5m)
+            convert_osm_osmconvert(osm_pbf, clipped_o5m)
 
             # Check if conversion of o5m is done and print the result
             if os.path.exists(clipped_o5m):

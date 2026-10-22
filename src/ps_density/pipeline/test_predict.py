@@ -100,11 +100,8 @@ def main():
     _cfg = load_paths()
     root = str(_cfg.data_root)
 
-    # Path for saving results (such as model checkpoints)
-    path_prefix = str(_cfg.test.output.revision_results_dir)
-
-    experiment_name = _cfg.test.output.experiment_name
-    experiment_dir = os.path.join(path_prefix, experiment_name)
+    experiment_dir = str(_cfg.test.output.results_dir)
+    experiment_name = os.path.basename(experiment_dir.rstrip(os.sep))
     # print(experiment_dir)
 
     os.makedirs(experiment_dir, exist_ok=True)
@@ -220,7 +217,7 @@ def main():
         flush=True,
     )
     model = PixelwiseRegressionTask.load_from_checkpoint(
-        checkpoint_path=resolve_paper_checkpoint(_cfg)
+        checkpoint_path=resolve_paper_checkpoint(_cfg.test.checkpoint)
     )
     plots_folder_name = "test_pred_54321_20231214_2in"
 
@@ -278,7 +275,7 @@ def main():
     # Save chips as geotiff
     start = timeit.default_timer()  # Measuring the time
     file_name = os.path.join(
-        root,
+        experiment_dir,
         "merged_prediction_fixed_stiching_{}.tif".format(
             datetime.now().strftime("%Y%m%d_%H%M%S")
         ),
@@ -303,7 +300,7 @@ def main():
     opt = RasterDatasetOptical_imgs(paths=str(_cfg.test.input.google_satellite_dir))
     print(opt)
 
-    outputdir_plots = os.path.join(str(_cfg.test.output.plots_review_dir), plots_folder_name)
+    outputdir_plots = os.path.join(str(_cfg.test.output.plots_dir), plots_folder_name)
     # Create directory if it doesn't exist
     os.makedirs(outputdir_plots, exist_ok=True)
     print(
@@ -559,7 +556,7 @@ def main():
 
 
     outputdir_plots_1in = os.path.join(
-        str(_cfg.test.output.plots_review_dir), plots_folder_name_1in
+        str(_cfg.test.output.plots_dir), plots_folder_name_1in
     )
     # Create directory if it doesn't exist
     os.makedirs(outputdir_plots_1in, exist_ok=True)
@@ -628,13 +625,15 @@ def main():
 
     # Run interference with on model
 
-    experiment_name_pred = experiment_name + "_Rome"
+    rome_dir = str(_cfg.test.rome.results_dir)
+    os.makedirs(rome_dir, exist_ok=True)
+    experiment_name_pred = os.path.basename(rome_dir.rstrip(os.sep))
     trainer, datamodule_pred = test_pred_setup(
         seed,
         param_const,
         param_opts[0],
         dataset_to_pred,
-        experiment_dir,
+        rome_dir,
         experiment_name_pred,
     )
 
@@ -711,7 +710,7 @@ def main():
     # Save chips as geotiff
     start = timeit.default_timer()  # Measuring the time
     file_name_interf = os.path.join(
-        root,
+        rome_dir,
         "merged_prediction_fixed_stiching_Rome_{}.tif".format(
             datetime.now().strftime("%Y%m%d_%H%M%S")
         ),
@@ -743,7 +742,7 @@ def main():
     print(opt_rome)
 
     outputdir_plots_interf = os.path.join(
-        str(_cfg.test.rome.plots_review_dir), plots_folder_name_1in
+        str(_cfg.test.rome.plots_dir), plots_folder_name_1in
     )
     print(
         "Rome review plots: 2-channel paper model ->",

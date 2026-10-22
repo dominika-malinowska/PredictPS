@@ -1,7 +1,7 @@
 """Train the 2-channel U-Net on Netherlands coherence, OSM, and EGMS rasters.
 
 Reads ``train.input`` from ``config/paths.yaml``. Writes checkpoints under
-``train.output.training_dir`` / ``train.output.experiment_name``.
+``train.output.results_dir``.
 """
 
 # check Python version (3.9 needed)
@@ -39,12 +39,9 @@ def main():
     ### Set-up parameters and import data ###
     # Set up parameters
 
-    # Path for saving results (such as model checkpoints)
     _cfg = load_paths()
-    path_prefix = str(_cfg.train.output.training_dir)
-
-    experiment_name = _cfg.train.output.experiment_name
-    experiment_dir = os.path.join(path_prefix, experiment_name)
+    experiment_dir = str(_cfg.train.output.results_dir)
+    experiment_name = os.path.basename(experiment_dir.rstrip(os.sep))
     print(experiment_dir)
 
     os.makedirs(experiment_dir, exist_ok=True)

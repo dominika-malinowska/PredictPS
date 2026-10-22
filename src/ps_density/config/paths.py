@@ -80,7 +80,9 @@ def load_paths(paths_file=None):
     with file_path.open(encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
 
-    data_root = os.environ.get("PREDICTPS_DATA_ROOT", raw.get("data_root", ""))
+    data_root = str(
+        os.environ.get("PREDICTPS_DATA_ROOT", raw.get("data_root", "")) or ""
+    ).rstrip("/\\")
     raw["data_root"] = data_root
     interpolated = _interpolate(raw, {"data_root": data_root})
     return _to_namespace(interpolated)

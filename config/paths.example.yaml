@@ -49,8 +49,7 @@ train:
     osm: &nl_osm "{data_root}/input/OSM_input_updated/OSM_combined.tif"  # merged OSM infrastructure
     mask_egms: &nl_mask "{data_root}/input/mask/mask_EGMS/egms_point_denisty.tif"  # EGMS PS-density raster
   output:
-    training_dir: "{data_root}/trainingnn_results"  # checkpoints and TensorBoard logs
-    experiment_name: pixel_wise_regression_model_training_updated_OSM
+    results_dir: "{data_root}/results_train"  # checkpoints and TensorBoard logs
 
 # -------------------------------------------------------------------------
 # test — ps_density.pipeline.test_predict and pipeline/notebooks/test_predict.ipynb
@@ -68,15 +67,15 @@ test:
   checkpoints:
     one_channel: "{data_root}/input/nn_models/one_input_channel/seed_54321_20231218-105437.ckpt"  # one-channel comparison
   output:
-    revision_results_dir: "{data_root}/trainingnn_results_paper_revisions"
-    experiment_name: pixel_wise_regression_model_training
-    plots_review_dir: "{data_root}/plots_review"
+    results_dir: "{data_root}/results_test"
+    plots_dir: "{data_root}/results_test/plots"
   rome:
     coherence_dir: "{data_root}/input/Italy/coh_Rome_cropped"
     osm_dir: "{data_root}/input/Italy/OSM_Rome_combined"
     mask_dir: "{data_root}/input/Italy/SNT/msk"
     google_satellite_dir: "{data_root}/input/Italy/Google_satellite"
-    plots_review_dir: "{data_root}/plots_review_Rome"
+    results_dir: "{data_root}/results_test_rome"
+    plots_dir: "{data_root}/results_test_rome/plots"
 
 # -------------------------------------------------------------------------
 # predict — ps_density.pipeline.predict_region and pipeline/notebooks/predict_region.ipynb
@@ -86,15 +85,17 @@ predict:
   osmconvert: osmconvert  # binary on PATH, or an absolute path
   aoi_lon: [18.53, 18.9]
   aoi_lat: [50.05, 50.5]
-  # Geofabrik regional .pbf in the experiment dir; not downloaded by the script
-  osm_pbf_name: slaskie-latest.osm.pbf
-  checkpoint: "{data_root}/best_models_15122023/seed_54321_20231214-203338.ckpt"
+  # Geofabrik regional .pbf; not downloaded by the script
+  osm_pbf: "{data_root}/input_predict_region/OSM/slaskie-latest.osm.pbf"
+  # Leave null/empty to download the paper model from Hugging Face
+  # (dominika-malinowska/ps_predictions, seed_54321_20231214-203338.ckpt).
+  # Set a local .ckpt (for example a training run) to override.
+  checkpoint: null
   output:
-    revision_results_dir: "{data_root}/trainingnn_results_paper_revisions"
-    experiment_name: pixel_wise_regression_run_predictions
+    results_dir: "{data_root}/results_predict_region"
 
 # -------------------------------------------------------------------------
 # paper — ps_density.pipeline.data_analysis_for_the_first_paper only
 # -------------------------------------------------------------------------
 paper:
-  plots_dir: "{data_root}/plots_paper_final_version"
+  plots_dir: "{data_root}/results_paper"
