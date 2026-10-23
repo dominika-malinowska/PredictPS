@@ -22,7 +22,7 @@ def using_mpl_scatter_density(
 ) -> Union[matplotlib.figure.Figure, matplotlib.axes.Axes]:
     """
     The following function generates scatter plots
-    that have denisty of points as a third dim
+    that have density of points as a third dim
     Source of the function:
     https://stackoverflow.com/questions/20105364/how-can-i-make-a-scatter-plot-colored-by-density-in-matplotlib
 
@@ -68,7 +68,7 @@ white_viridis = LinearSegmentedColormap.from_list(
 )
 
 
-def plot_scatter_denisty(
+def plot_scatter_density(
     x: np.ndarray,
     y: np.ndarray,
     title: str,
@@ -84,7 +84,7 @@ def plot_scatter_denisty(
 ):
     """
     The following function plots scatter plots with density of points as a third dimension
-    It uses using_mpl_scatter_denisty function
+    It uses using_mpl_scatter_density.
 
     Args:
         x (np.ndarray): x data
@@ -123,6 +123,5 @@ def plot_scatter_denisty(
 
     ax.set_xlim([x_limit_min, x_limit])
     ax.set_ylim([y_limit_min, y_limit])
-    #     ax.set_ylim([0, y_limit])
 
     return fig, ax

@@ -43,8 +43,7 @@ from torchgeo.transforms import AugmentationSequential
 from torch.utils.data import DataLoader, Dataset
 
 
-# Class copied from the TorchGeo so that some alternations (e.g. plot functions) can be made
-# TO BE DONE: Make it so that it inherits the class from the TorchGeo and only then adds changes?
+# Copied from TorchGeo so that plot functions and other details can be changed.
 class RegressionTask(LightningModule):
     """
     This class is a PyTorch Lightning module for training models on regression datasets.
@@ -235,8 +234,6 @@ class RegressionTask(LightningModule):
         y = batch[self.target_key]
         y_hat = self(x)
 
-        # batch_size = x.shape[0]
-        # print(batch_size)
         if y_hat.ndim != y.ndim:
             y = y.unsqueeze(dim=1)
 
@@ -245,20 +242,6 @@ class RegressionTask(LightningModule):
             "train_loss", loss, on_step=False, on_epoch=True
         )  # logging to TensorBoard
         self.train_metrics(y_hat, y.to(torch.float))
-
-        #         y_hat_hard = y_hat.squeeze(dim=1)
-
-        #         if batch_idx < 10:
-        #             batch["prediction"] = y_hat_hard
-        #             for key in ["image", "mask", "prediction"]:
-        #                 batch[key] = batch[key].cpu()
-        #             sample = unbind_samples(batch)[0]
-        #             fig = self.plot(sample)
-        #             summary_writer = self.logger.experiment
-        #             summary_writer.add_figure(
-        #                 f"image/train/{batch_idx}", fig, global_step=self.global_step
-        #             )
-        #             plt.close()
 
         return loss
 
@@ -420,8 +403,7 @@ class RegressionTask(LightningModule):
         }
 
 
-# Class copied from the TorchGeo so that some alternations can be made
-# TO BE DONE: Make it so that it inherits the class from the TorchGeo and only then adds changes?
+# Copied from TorchGeo so that plot functions and other details can be changed.
 class PixelwiseRegressionTask(RegressionTask):
     """LightningModule for pixelwise regression of images.
 
@@ -643,20 +625,6 @@ class CustomGeoDataModule(GeoDataModule):
         )
 
     def val_dataloader(self) -> DataLoader[dict[str, Tensor]]:
-        #         print('val_dataloader')
-
-        #         val_dataloader =DataLoader(
-        #             dataset=self.val_dataset,
-        #             batch_size=self.batch_size,
-        #             sampler=self.val_sampler,
-        #             num_workers=self.num_workers,
-        #             collate_fn=self.collate_fn,
-        #         )
-
-        #         for b, batch in enumerate(val_dataloader):
-        #             if b<10:
-        #                 print(batch['bbox'])
-
         return DataLoader(
             dataset=self.val_dataset,
             batch_size=self.batch_size,

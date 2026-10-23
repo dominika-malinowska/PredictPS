@@ -4,9 +4,13 @@ Pixel-wise prediction of persistent scatterer (PS) density from Sentinel-1 globa
 
 ## How to cite
 
-This repository contains code required to reproduce results for the paper entitled "" (DOI ).
+This repository contains code required to reproduce results for the paper:
 
-Research data: .
+Malinowska, D., Milillo, P., Briggs, K., Reale, C., and Giardina, G. (2024). Coherence-Based Prediction of Multi-Temporal InSAR Measurement Availability for Infrastructure Monitoring. *IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing*, 17, 16392–16410. [https://doi.org/10.1109/JSTARS.2024.3449688](https://doi.org/10.1109/JSTARS.2024.3449688)
+
+Research data: Zenodo DOI to be added.
+
+Code: [https://github.com/dominika-malinowska/PredictPS](https://github.com/dominika-malinowska/PredictPS)
 
 See also [CITATION.cff](CITATION.cff).
 
@@ -14,7 +18,7 @@ See also [CITATION.cff](CITATION.cff).
 
 Input data, intermediate files, and outputs that reproduce the paper are published on Zenodo.
 
-**DOI:**
+**DOI:** to be added after the Zenodo deposit.
 
 Download and extract the archive, then set `data_root` to the extracted directory (see Configuration). Folder names match [`config/paths.example.yaml`](config/paths.example.yaml). Required file names are listed under Required inputs.
 
@@ -118,8 +122,8 @@ The Zenodo deposit includes `OSM_combined.tif`, the infrastructure raster used f
 | --- | --- |
 | `test.input.coherence_summer`, `osm`, `mask_egms` | Same stack as training |
 | `test.checkpoint` | Local `.ckpt`, or empty to download from Hugging Face (`dominika-malinowska/ps_predictions`) |
-| `test.checkpoints.one_channel` | One-channel comparison (local file) |
-| `test.input.google_satellite_dir` | Optional RGB context for review plots |
+| `test.checkpoints.one_channel` | One-channel comparison checkpoint from Zenodo (not on Hugging Face) |
+| `test.input.google_satellite_dir` | RGB GeoTIFFs for review plots |
 | `test.output.results_dir` | Netherlands test GeoTIFF |
 | `test.output.plots_dir` | Netherlands review JPEGs |
 | `test.rome.*` | Rome transfer rasters, `results_dir`, and `plots_dir` |
@@ -212,7 +216,7 @@ Inspect the stack first in `src/ps_density/pipeline/notebooks/train.ipynb`. That
 
 **Step 5.** `pipeline.test_predict` — Netherlands test MAE, review plots, one-channel comparison, and Rome transfer.
 
-**Input:** `test.input.`*, paper checkpoint, optional Rome rasters. **Output:** `test.output.results_dir`, review plots in `test.output.plots_dir`, Rome GeoTIFFs in `test.rome.results_dir`, Rome plots in `test.rome.plots_dir`.
+**Input:** `test.input.*`, paper checkpoint, Google RGB, Rome rasters. **Output:** `test.output.results_dir`, review plots in `test.output.plots_dir`, Rome GeoTIFFs in `test.rome.results_dir`, Rome plots in `test.rome.plots_dir`.
 
 ```bash
 poetry run python -m ps_density.pipeline.test_predict
@@ -283,8 +287,8 @@ These are imported by pipeline scripts; do not invoke them with `poetry run pyth
 | `utils/preprocessing_OSM_data.py` | osmconvert clip and infrastructure value map |
 | `utils/prediction_plots.py` | Georeferenced chips, mosaic merge, review plots |
 | `utils/sampling_maps.py` | Train/val/test chip map |
-| `utils/plotting_scatter_with_3rd_dim.py` | Density scatter plots for paper figures |
-| `utils/coordinates_selection.py` | Interactive AOI helper; pipeline uses `haversine_distance` |
+| `utils/plotting_scatter_with_3rd_dim.py` | Density scatter plots |
+| `utils/coordinates_selection.py` | Great-circle distance used by `predict_region` |
 | `config/paths.py` | Loads `config/paths.yaml` |
 
 ## Pipeline I/O reference
@@ -295,7 +299,7 @@ These are imported by pipeline scripts; do not invoke them with `poetry run pyth
 | 2 | `prepare_data.prepare_osm` | `prepare.osm_pbf` | timestamped mosaic next to `train.input.osm` |
 | 3 | `prepare_data/prepare_egms.ipynb` | `prepare.egms_links_txt`, `prepare.egms_shp_dir` | filtered link list, merged shapefiles; QGIS writes `train.input.mask_egms` |
 | 4 | `pipeline.train` | `train.input.*` | checkpoints under `train.output.results_dir` |
-| 5 | `pipeline.test_predict` | `test.input.*`, checkpoint, optional `test.rome.*` | `results_test` / `results_test_rome` GeoTIFFs and plots |
+| 5 | `pipeline.test_predict` | `test.input.*`, checkpoint, Google RGB, `test.rome.*` | `results_test` / `results_test_rome` GeoTIFFs and plots |
 | 6 | `pipeline.predict_region` | `predict.*`, OSM PBF, public coherence tile | `{lat}{lon}_PS_pred.tif` under `results_predict_region` |
 | 7 | `pipeline.data_analysis_for_the_paper` | `paper.input` GeoTIFFs | timestamped folder beside `paper.plots_dir` |
 
@@ -320,7 +324,7 @@ A new Step 5 run writes timestamped `review_NL_2channel_*`, `review_NL_1channel_
 | Fig. 3a | Yes | Step 7, `fig3a.png` |
 | Fig. 3b | No | QGIS map of `input/OSM/OSM_combined.tif` |
 | Fig. 4a | Yes | Step 7, `fig4a.png` |
-| Fig. 4b | No | QGIS map of `input/EGMS/egms_point_denisty.tif` |
+| Fig. 4b | No | QGIS map of `input/EGMS/egms_point_density.tif` |
 | Fig. 5a–f | Yes | Step 7, `fig5a.png` … `fig5f.png` |
 | Fig. 6a–d | Yes | Step 5, Netherlands 2-channel review plots (see mapping below) |
 | Fig. 7a–b | Yes | Step 7, `fig7a.png`, `fig7b.png` |
@@ -333,7 +337,6 @@ A new Step 5 run writes timestamped `review_NL_2channel_*`, `review_NL_1channel_
 | Fig. 14a–c | Yes | Step 5, Netherlands 2-channel review plots |
 | Fig. 15a–b | Yes | Step 5, Netherlands 2-channel review plots |
 | Fig. 15c–d | Yes | Step 7, `fig15c.png`, `fig15d.png` |
-| Supplementary regressions | Yes | Step 7 (commented in the script): `linear_regression_1in.png`, `poly_regression_1in.png` |
 
 Review-plot mapping (`model_pred_b{batch}_{patch}.jpg` → paper name). None of these IDs is used twice except Fig. 13, where the same chips are plotted once per model:
 
@@ -361,7 +364,8 @@ Review-plot mapping (`model_pred_b{batch}_{patch}.jpg` → paper name). None of 
 - AWS CLI, for public Sentinel-1 global coherence (`aws s3 cp --no-sign-request`)
 - Geofabrik [`.osm.pbf`](https://download.geofabrik.de/) extracts
 - EGMS portal download and QGIS density conversion
-- Hugging Face checkpoint `dominika-malinowska/ps_predictions` (`seed_54321_20231214-203338.ckpt`) unless `test.checkpoint` or `predict.checkpoint` points at a local file
+- Hugging Face 2-channel checkpoint `dominika-malinowska/ps_predictions` (`seed_54321_20231214-203338.ckpt`) unless `test.checkpoint` or `predict.checkpoint` points at a local file
+- One-channel comparison checkpoint from Zenodo at `test.checkpoints.one_channel` (used only for Fig. 13)
 
 ## License
 

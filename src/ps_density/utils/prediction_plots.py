@@ -19,9 +19,9 @@ from rasterio.merge import merge
 
 # Set global font parameters for the plots
 font_params = {
-    "font.family": "serif",  # Choose the font family (e.g., 'serif', 'sans-serif', etc.)
-    "font.serif": "Times New Roman",  # Specify the serif font
-    "font.size": 12,  # Set the font size
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "DejaVu Serif", "Liberation Serif", "serif"],
+    "font.size": 12,
 }
 # Apply the global font parameters
 plt.rcParams.update(font_params)
@@ -71,9 +71,6 @@ def create_in_memory_geochip(predicted_chip, geotransform, crs):
         nodata=255,
     )
 
-    #     print(predicted_chip)
-    #     print('shape',predicted_chip.shape )
-
     dataset.write(predicted_chip[0].detach().numpy())
     return dataset
 
@@ -96,18 +93,7 @@ def georreferenced_chip_generator(dataloader, model, crs, pixel_size):
     """
     georref_chips_list = []
 
-    for i, sample in enumerate(dataloader):
-        #         if i<1:
-
-        # image, gt_mask, bbox = sample["image"], sample["mask"], sample["bbox"][0]
-
-        # prediction = model(image)
-
-        # geotransform = from_origin(bbox.minx, bbox.maxy, pixel_size, pixel_size)
-
-        # georref_chips_list.append(
-        #     create_in_memory_geochip(prediction, geotransform, crs)
-        # )
+    for sample in dataloader:
         for j in range(len(sample["bbox"])):
             image, bbox = sample["image"][j], sample["bbox"][j]
 
@@ -284,18 +270,6 @@ def set_axis_ticks(ax, bbox, max_ticks, plot_axis):
         )
     else:
         ax.axis("off")
-
-
-# Define a helper function for plotting colorbars
-# def create_colorbar(image, position, label, labelpad, ticks=None, tick_labels=None):
-#     cbar_ax = plt.gcf().add_axes(position)
-#     cbar = plt.colorbar(image, cax=cbar_ax, orientation="horizontal")
-#     cbar.set_label(label, fontsize=14, labelpad=labelpad)
-#     if ticks is not None:
-#         cbar.set_ticks(ticks)
-#     if tick_labels is not None:
-#         cbar.set_ticklabels(tick_labels)
-#         cbar.ax.set_xticklabels(cbar.ax.get_xticklabels(), rotation=90, ha="center")
 
 
 def create_colorbar(

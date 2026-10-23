@@ -46,7 +46,6 @@ class RasterDatasetOptical_imgs(RasterDataset):
 
         # Reorder and rescale the image
         image = sample["image"][rgb_indices].permute(1, 2, 0)
-        #         image = sample["image"][rgb_indices]
         image = torch.clamp(image / 1, min=0, max=1).numpy()
 
         # Plot the image

@@ -5,21 +5,38 @@ authors:
   - family-names: Malinowska
     given-names: Dominika
     email: dominika.u.malinowska@gmail.com
+    orcid: https://orcid.org/0000-0003-3607-8267
+    affiliation: Department of Geoscience and Engineering, Delft University of Technology, Delft, The Netherlands
 license: MIT
-repository-code: https://github.com/SafeStruct/PredictPS
+repository-code: https://github.com/dominika-malinowska/PredictPS
 type: software
+version: "1.0.0"
 identifiers:
   - type: doi
-    value: ""
-    description: Paper DOI (to be added)
-  - type: doi
-    value: ""
-    description: Zenodo research data DOI (to be added)
+    value: 10.1109/JSTARS.2024.3449688
+    description: Paper DOI
 preferred-citation:
   type: article
-  title: ""
+  title: "Coherence-Based Prediction of Multi-Temporal InSAR Measurement Availability for Infrastructure Monitoring"
   authors:
     - family-names: Malinowska
       given-names: Dominika
-  doi: ""
-  year: 2026
+      orcid: https://orcid.org/0000-0003-3607-8267
+    - family-names: Milillo
+      given-names: Pietro
+      orcid: https://orcid.org/0000-0002-1171-3976
+    - family-names: Briggs
+      given-names: Kevin
+      orcid: https://orcid.org/0000-0003-1738-9692
+    - family-names: Reale
+      given-names: Cormac
+      orcid: https://orcid.org/0000-0001-9610-4389
+    - family-names: Giardina
+      given-names: Giorgia
+      orcid: https://orcid.org/0000-0002-5996-5830
+  doi: 10.1109/JSTARS.2024.3449688
+  url: https://doi.org/10.1109/JSTARS.2024.3449688
+  year: 2024
+  volume: "17"
+  pages: 16392-16410
+  journal: IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing

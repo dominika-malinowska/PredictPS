@@ -5,8 +5,6 @@ set. Writes review plots, a Netherlands prediction GeoTIFF, a one-channel
 comparison, and a Rome prediction GeoTIFF.
 """
 
-# check Python version (3.9 needed)
-# !python --version # jupyter
 import platform
 
 print(platform.python_version())
@@ -28,10 +26,7 @@ from lightning.pytorch import seed_everything
 
 import timeit
 
-from ps_density.utils.torchgeo_classes_def import (
-    RegressionTask,
-    PixelwiseRegressionTask,
-)
+from ps_density.utils.torchgeo_classes_def import PixelwiseRegressionTask
 from ps_density.utils.torchgeo_fun_to_read_input import (
     scale_coh,
     plot_input,
@@ -98,11 +93,9 @@ def main():
     ### Read dataset ###
     # Set-up paths
     _cfg = load_paths()
-    root = str(_cfg.data_root)
 
     experiment_dir = str(_cfg.test.output.results_dir)
     experiment_name = os.path.basename(experiment_dir.rstrip(os.sep))
-    # print(experiment_dir)
 
     os.makedirs(experiment_dir, exist_ok=True)
 
@@ -183,33 +176,6 @@ def main():
     plot_input(dataset[bounding_box], rows=1)
 
 
-    # ### Model variability - print results from the 20 seeds ###
-
-    # # List all trained models with varied seed
-    # best_models_path = os.path.join(root, "best_models_15122023")
-
-    # models_seeds = os.listdir(best_models_path)
-    # print(
-    #     "number of models considered: ", len(models_seeds), "\n Model seeds: ", models_seeds
-    # )
-
-
-    # # Iterate throught the results from the twenty different seeds and print the testing results
-    # for model_seed in models_seeds:
-    #     model = PixelwiseRegressionTask.load_from_checkpoint(
-    #         checkpoint_path=os.path.join(best_models_path, "{}".format(model_seed))
-    #     )
-
-    #     seed = int(model_seed.split("_")[1])
-
-    #     trainer, datamodule = test_pred_setup(
-    #         seed, param_const, param_opts[0], dataset, experiment_dir, experiment_name
-    #     )
-
-    #     print("Model from checkpoint: ", model_seed)
-    #     trainer.test(model=model, datamodule=datamodule)
-
-
     ### Print results from one specific model ###
     # Paper 2-channel model from Hugging Face, or test.checkpoint if set
     print(
@@ -285,7 +251,6 @@ def main():
     overlap = 8
     bounds = (int(3), int(50), int(8), int(54))
 
-    # merge_georeferenced_chips(chips_generator, file_name)
     merge_georeferenced_chips(chips_generator, file_name, overlap, bounds)
     print(
         "Netherlands GeoTIFF written:",
@@ -314,17 +279,6 @@ def main():
     plot_titles = False
     plot_bar = True
 
-
-    # Plot all patches (!TIME CONSUMING!)
-    # df_mae_test = plot_input_pred_patch(
-    #     dataloader_pred, model, opt, batch_size, plot_axis, plot_bar, plot_titles, outputdir_plots
-    # )
-    # df_mae_test.to_csv(
-    #     outputdir_plots + "\\df_mae_{}.csv".format(datetime.now().strftime("%Y%m%d_%H%M%S")), index=False
-    # )
-    # print("Mean MAE", df_mae_test.mae.mean())
-
-    # Plot specific patch
     df_mae_test = plot_input_pred_patch(
         dataloader_pred,
         model,
@@ -662,32 +616,6 @@ def main():
     model.prediction_epoch_end(prediction_output)
 
 
-    # Run interference with 20 models
-
-    # # Iterate throught the results from the twenty different seeds and print the testing results
-    # for model_seed in models_seeds:
-    #     model = PixelwiseRegressionTask.load_from_checkpoint(
-    #         checkpoint_path=os.path.join(best_models_path, "{}".format(model_seed))
-    #     )
-
-    #     seed = int(model_seed.split("_")[1])
-
-    #     experiment_name_pred = experiment_name + "_Rome"
-
-    #     trainer, datamodule_pred = test_pred_setup(
-    #         seed,
-    #         param_const,
-    #         param_opts[0],
-    #         dataset_to_pred,
-    #         experiment_dir,
-    #         experiment_name_pred,
-    #     )
-
-    #     print("Model from checkpoint: ", model_seed)
-    #     prediction_output = trainer.predict(model=model, datamodule=datamodule_pred)
-    #     print(RegressionTask.prediction_epoch_end(prediction_output))
-
-
     ### Generate plots ###
     sampler_interf = GridGeoSampler(dataset_to_pred, patch_size, patch_size)
 
@@ -795,28 +723,6 @@ def main():
         specific_patch=6,
         paper_fig="fig12b",
     )
-
-
-    # ### Print model layers
-    # from skorch import NeuralNetRegressor
-
-    # # task = PixelwiseRegressionTask(
-    # #     model=segm_model,
-    # #     backbone=backbone,
-    # #     weights=weights,
-    # #     in_channels=in_channels,
-    # #     loss=loss,
-    # #     ignore_index=ignore_index,
-    # #     learning_rate=learning_rate,
-    # #     beta1=beta1,
-    # #     beta2=beta2,
-    # #     wd=wd,
-    # #     learning_rate_schedule_patience=learning_rate_schedule_patience,
-    # # )
-
-    # model = NeuralNetRegressor(module=task)
-
-    # print(model.initialize())
 
 
 if __name__ == "__main__":

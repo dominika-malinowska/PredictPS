@@ -24,16 +24,8 @@ import cartopy.feature as cfeature
 
 from shapely.geometry import Polygon
 
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-from sklearn.preprocessing import PolynomialFeatures
-
-import statsmodels.formula.api as smf
-
 from ps_density.config.paths import load_paths
 from ps_density.prepare_data.prepare_coherence import main as prepare_coherence
-from ps_density.utils.plotting_scatter_with_3rd_dim import plot_scatter_denisty
 
 
 def ensure_seasonal_coherence(mosaic_path, season):
@@ -63,9 +55,9 @@ def main():
 
     # Set global font parameters for the plots
     font_params = {
-        "font.family": "serif",  # Choose the font family (e.g., 'serif', 'sans-serif', etc.)
-        "font.serif": "Times New Roman",  # Specify the serif font
-        "font.size": 12,  # Set the font size
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "DejaVu Serif", "Liberation Serif", "serif"],
+        "font.size": 12,
     }
     # Apply the global font parameters
     plt.rcParams.update(font_params)
@@ -74,15 +66,13 @@ def main():
     # Function definitions #
 
 
-    def fetch_data(raster_file, plot_title="", null_value=-9999) -> np.array:
+    def fetch_data(raster_file, null_value=-9999) -> np.array:
         # Code based on https://towardsdatascience.com/raster-data-scatter-plot-using-python-4bcdc8286769
-        # fetch data cleans and ravels rasters. returns raveled raster
         """
         The function reads a raster file, cleans it from null values, and returns a raveled raster.
 
         Args:
         raster_file (str): the path to the raster file
-        plot_title (str): the title of the plot
         null_value (int): the null value in the raster
 
         Returns:
@@ -93,27 +83,16 @@ def main():
         fname = raster_file
         print(fname, 0)
 
-        # Using PIL to import raster, and convert it to numpy array
         im = Image.open(fname)
         j = np.array(im)
 
-        # Data cleansing, remove the null value
-        #     clean = lambda x: np.nan if x == null_value else x
         def clean(x):
             return np.nan if x <= null_value else x
 
         cleann = np.vectorize(clean)
-        z = np.ravel(j)  # ravelling to make a x or y axis
+        z = np.ravel(j)
         y = cleann(z)
-        retval = y[~np.isnan(y)]
-
-        # some visualization to describe the data
-        plt.figure(figsize=(7, 3))
-        plt.hist(retval, color="black", bins=32)
-        plt.title(plot_title)
-
-        # return raveled data
-        return retval
+        return y[~np.isnan(y)]
 
 
     def load_data(raster_file) -> np.array:
@@ -1088,311 +1067,6 @@ def main():
             bbox_inches="tight",
         )
         plt.close()
-
-
-    # # Regression results just for review response #
-    # # Linear regresssion test #
-
-    # # Fitting straight line
-    # # Linear y = ax+b
-    # equation = "nbpoints ~ coh_mean"
-    # y_hat_ver = "lin"
-    # title = "y = {:.2f}x + {:.2f}"
-
-
-    # m = smf.ols(equation, data=df).fit()
-    # print(m.summary())
-
-    # x = df["coh_mean"]
-    # y = df["nbpoints"]
-
-    # x_t = x
-    # y_t = y
-
-    # alpha = 0.05
-
-
-    # yhat = m.fittedvalues
-    # predictions = m.get_prediction(df).summary_frame(alpha)
-    # plot_title = title.format(m.params[1], m.params[0])
-
-    # plot_title = (
-    #     plot_title
-    #     + "\n R-squared: {:.3f}".format(m.rsquared)
-    #     + "\n RMSE: {:.3f}".format(np.sqrt(m.mse_resid))
-    # )
-
-    # # print('\n\n', plot_title, '\n R-squared: {:.3f}'.format(m.rsquared),
-    # #       '\n Standard error of regression: {:.2f} \n\n'.format(np.sqrt(m.mse_resid)))
-
-
-    # # Fitting plot
-    # df_sample = df.sample(frac=0.1)
-    # x_s = df_sample["coh_mean"]
-    # y_s = df_sample["nbpoints"]
-
-
-    # # fig, ax = plt.subplots(figsize=(8, 6))
-    # # ax.scatter(x_s, y_s, label="Data", s=0.2)
-    # # ax.scatter(x, yhat, color="r", label="Predicted")
-    # # legend = ax.legend(loc="best")
-    # # ax.set_title(plot_title)
-    # # ax.set_xlabel("coh")
-    # # ax.set_ylabel("nbpoints")
-    # # ax.set_ylim([0, 200])
-
-
-    # # plot correlation between coherence and nb of points
-    # x = df["coh_mean"].values
-    # y = df["nbpoints"].values
-    # title = "Long-term coherence vs number of points in a pixel \n (all pixels)"
-    # xlabel = "coh_mean"
-    # ylabel = "nbpoints"
-    # x_limit = 1
-    # y_limit = 100
-    # vmax = 200
-    # y_limit_min = 0
-    # x_limit_min = 0
-
-    # dpi = 23
-    # # dpi = 10
-
-
-    # fig, ax = plot_scatter_denisty(
-    #     x, y, title, xlabel, ylabel, x_limit, y_limit, vmax, x_limit_min, y_limit_min, dpi
-    # )
-
-    # plt.scatter(x, predictions["mean"], label="Regression line")
-
-    # plt.savefig(
-    #     os.path.join(outputdir_plots, "linear_regression_1in.png"),
-    #     dpi=300,
-    #     bbox_inches="tight",
-    # )
-    # plt.close()
-
-
-    # # # Residuals plot
-    # # fig, ax = plt.subplots(figsize=(8, 6))
-    # # ax.scatter(yhat, m.resid, label="Residuals", s=0.5)
-    # # plt.axhline(0, color="darkorange", linestyle="--")
-    # # legend = ax.legend(loc="best")
-    # # ax.set_title("Fitted vs residuals")
-    # # ax.set_xlabel("Fitted/predicted y")
-    # # ax.set_ylabel("Residuals")
-
-    # mse = mean_squared_error(y, yhat)
-    # rmse = np.sqrt(mse)
-    # print("rmse: ", rmse)
-
-    # mae = mean_absolute_error(y, yhat)
-    # print("mae: ", mae)
-
-
-    # # Fitting polynomial
-    # # polynomial y = a(np.sqrt(x))^2 + b*np.sqrt(x) + c
-    # equation = "nbpoints ~ np.sqrt(coh_mean) + I(np.sqrt(coh_mean)**2)"
-    # x_t = np.sqrt(x)
-    # y_t = y
-    # y_hat_ver = "poly"
-    # title = "y = {:.2f}sqrt(x) ^2 + {:.2f}sqrt(x)  + {:.2f}"
-
-
-    # m = smf.ols(equation, data=df).fit()
-    # print(m.summary())
-
-    # x = df["coh_mean"]
-    # y = df["nbpoints"]
-
-    # alpha = 0.05
-
-    # y_hat_ver == "poly"
-    # yhat = m.fittedvalues
-    # predictions = m.get_prediction(df).summary_frame(alpha)
-    # plot_title = title.format(m.params[2], m.params[1], m.params[0])
-
-    # plot_title = (
-    #     f"{plot_title}\n R-squared: {m.rsquared:.3f}" f"\n RMSE: {np.sqrt(m.mse_resid):.3f}"
-    # )
-
-    # # print('\n\n', plot_title, '\n R-squared: {:.3f}'.format(m.rsquared),
-    # #       '\n Standard error of regression: {:.2f} \n\n'.format(np.sqrt(m.mse_resid)))
-
-
-    # # Fitting plot
-    # df_sample = df.sample(frac=0.1)
-    # x_s = df_sample["coh_mean"]
-    # y_s = df_sample["nbpoints"]
-
-
-    # # fig, ax = plt.subplots(figsize=(8, 6))
-    # # ax.scatter(x_s, y_s, label="Data", s=0.2)
-    # # ax.scatter(x, yhat, color="r", label="Predicted")
-    # # legend = ax.legend(loc="best")
-    # # ax.set_title(plot_title)
-    # # ax.set_xlabel("coh")
-    # # ax.set_ylabel("nbpoints")
-    # # ax.set_ylim([0, 200])
-
-
-    # # plot correlation between coherence and nb of points
-    # x = df["coh_mean"].values
-    # y = df["nbpoints"].values
-    # title = "Long-term coherence vs number of points in a pixel \n (all pixels)"
-    # xlabel = "coh_mean"
-    # ylabel = "nbpoints"
-    # x_limit = 1
-    # y_limit = 100
-    # vmax = 200
-    # y_limit_min = 0
-    # x_limit_min = 0
-
-    # dpi = 23
-    # # dpi = 10
-
-
-    # fig, ax = plot_scatter_denisty(
-    #     x, y, title, xlabel, ylabel, x_limit, y_limit, vmax, x_limit_min, y_limit_min, dpi
-    # )
-
-    # plt.scatter(x, predictions["mean"], label="Regression line")
-    # plt.savefig(
-    #     os.path.join(outputdir_plots, "poly_regression_1in.png"),
-    #     dpi=300,
-    #     bbox_inches="tight",
-    # )
-    # plt.close()
-
-
-    # # # Residuals plot
-    # # fig, ax = plt.subplots(figsize=(8, 6))
-    # # ax.scatter(yhat, m.resid, label="Residuals", s=0.5)
-    # # plt.axhline(0, color="darkorange", linestyle="--")
-    # # legend = ax.legend(loc="best")
-    # # ax.set_title("Fitted vs residuals")
-    # # ax.set_xlabel("Fitted/predicted y")
-    # # ax.set_ylabel("Residuals")
-
-    # mse = mean_squared_error(y, yhat)
-    # rmse = np.sqrt(mse)
-    # print("rmse: ", rmse)
-
-    # mae = mean_absolute_error(y, yhat)
-    # print("mae: ", mae)
-
-
-    # np.random.seed(0)
-    
-    # # ONE INPUT
-    # # Read data
-    # X = df["coh_mean"].values
-    # y = df["nbpoints"].values
-
-    # # Split the data into training and testing sets
-    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-    # # Reshape the data so that the first dimension is the number of samples
-    # # and the second dimension is the number of features
-    # X_train = X_train[:, np.newaxis]
-    # X_test = X_test[:, np.newaxis]
-
-    # # Create and train the linear regression model
-    # model = LinearRegression()
-    # model.fit(X_train, y_train)
-
-    # # Make predictions and evaluate the model
-    # y_pred = model.predict(X_test)
-    # print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
-    # print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
-    # print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
-    # print(f"Coefficients: {model.coef_}")
-    # print(f"Intercept: {model.intercept_}")
-
-    # # TWO INPUTS
-    # # Read data
-    # X = df[["coh_mean", "infr_map"]].values
-    # y = df["nbpoints"].values
-
-    # # Split the data into training and testing sets
-    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-    # # Create and train the linear regression model
-    # model = LinearRegression()
-    # model.fit(X_train, y_train)
-
-    # # Make predictions and evaluate the model
-    # y_pred = model.predict(X_test)
-    # print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
-    # print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
-    # print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
-    # print(f"Coefficients: {model.coef_}")
-    # print(f"Intercept: {model.intercept_}")
-
-
-    # # Fitting polynomial
-
-    # # ONE INPUT
-    # # Read data
-    # X = df[["coh_mean"]].values
-    # y = df["nbpoints"].values
-
-    # # Create PolynomialFeatures object with degree=2
-    # poly = PolynomialFeatures(degree=2)
-
-    # # Transform the features to 2nd degree polynomial features
-    # X_poly = poly.fit_transform(X)
-
-    # # Split the data into training and testing sets
-    # X_train, X_test, y_train, y_test = train_test_split(
-    #     X_poly, y, test_size=0.2, random_state=0
-    # )
-
-    # # # Reshape the data so that the first dimension is the number of samples
-    # # and the second dimension is the number of features
-    # # X_train = X_train[:, np.newaxis]
-    # # X_test = X_test[:, np.newaxis]
-
-    # # Create and train the linear regression model
-    # model = LinearRegression()
-    # model.fit(X_train, y_train)
-
-    # # Make predictions and evaluate the model
-    # y_pred = model.predict(X_test)
-    # print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
-    # print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
-    # print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
-    # print(f"Coefficients: {model.coef_}")
-    # print(f"Intercept: {model.intercept_}")
-
-
-    # # TWO INPUTS
-    # # Read data
-    # X = df[["coh_mean", "infr_map"]].values
-    # y = df["nbpoints"].values
-
-    # # Create PolynomialFeatures object with degree=2
-    # poly = PolynomialFeatures(degree=2)
-
-    # # Transform the features to 2nd degree polynomial features
-    # X_poly = poly.fit_transform(X)
-
-    # # Split the data into training and testing sets
-    # X_train, X_test, y_train, y_test = train_test_split(
-    #     X_poly, y, test_size=0.2, random_state=0
-    # )
-
-    # # Create and train the linear regression model
-    # model = LinearRegression()
-    # model.fit(X_train, y_train)
-
-    # # Make predictions and evaluate the model
-    # y_pred = model.predict(X_test)
-    # print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
-    # print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
-    # print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
-    # print(f"Coefficients: {model.coef_}")
-    # print(f"Intercept: {model.intercept_}")
-    # print(f"Powers that should be used in the equation: {poly.powers_}")
 
 
 if __name__ == "__main__":

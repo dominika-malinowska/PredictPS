@@ -4,12 +4,9 @@ Reads ``train.input`` from ``config/paths.yaml``. Writes checkpoints under
 ``train.output.results_dir``.
 """
 
-# check Python version (3.9 needed)
-# !python --version # jupyter
 import platform
 print(platform.python_version())
 
-# Import modules
 import os
 import shutil
 import warnings
@@ -124,7 +121,7 @@ def main():
         0.01  # when change in val_loss less than that for appropriate number of epochs
     )
     # early stopping will be triggered
-    max_epochs = 5  # maximum number of epochs
+    max_epochs = 5  # maximum number of epochs, set to 300 for full training
 
     gpu_id = 0
     device = torch.device(f"cuda:{gpu_id}")
@@ -150,8 +147,6 @@ def main():
     patch_size = param_opts[0][1]
     batch_size = param_opts[0][0]
 
-    # Iterate through the list of seeds and run the training with constant set of parameters but different seed
-    # for seed in [0, 1, 10, 42, 123, 1234, 12345, 54321, 999, 9999, 7436, 9703, 4502, 9648, 3606, 9570, 573, 7993, 9491, 6684]:
     for seed in [54321]:
         for i in list(range(len(param_opts))):
             # Set-up training

@@ -6,8 +6,6 @@ local OSM PBF, downloads the public coherence GeoTIFF, and writes a merged
 prediction GeoTIFF.
 """
 
-# check Python version (3.9 needed)
-# !python --version # jupyter
 import platform
 
 print(platform.python_version())
@@ -61,7 +59,6 @@ def main():
 
     ### Set-up region to be analysed ###
 
-    # !!! FOR NOW IT ONLY WORKS IF THE REGION IS WITHIN ONE BY ONE DEGREE TILE (TO BE UPDATED) !!!
     _cfg = load_paths()
     x = list(_cfg.predict.aoi_lon)
     y = list(_cfg.predict.aoi_lat)
@@ -78,7 +75,6 @@ def main():
     ### Set-up variables ###
 
     experiment_dir = str(_cfg.predict.output.results_dir)
-    # print(experiment_dir)
 
     os.makedirs(experiment_dir, exist_ok=True)
 
