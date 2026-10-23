@@ -42,7 +42,7 @@ poetry install --with dev
 
 `osmconvert` and the AWS CLI are external programs. Install `osmconvert` and put it on `PATH`, or set `predict.osmconvert` in `config/paths.yaml` to the binary path. The AWS CLI is used to download public coherence tiles (`aws s3 cp --no-sign-request`); no AWS credentials are required.
 
-OpenStreetMap **`.osm.pbf`** extracts are **not** downloaded by the repository scripts. Download them yourself from [Geofabrik](https://download.geofabrik.de/). The published training data used a Geofabrik Netherlands build from **26 October 2023**.
+OpenStreetMap `.osm.pbf` extracts are **not** downloaded by the repository scripts. Download them yourself from [Geofabrik](https://download.geofabrik.de/). The published training data used a Geofabrik Netherlands build from **26 October 2023**.
 
 ## Configuration
 
@@ -140,7 +140,25 @@ With the 20 Netherlands tiles, seed 54321, and the paper checkpoint, the test lo
 
 ### Paper figures
 
-The `paper:` block is not required to train or predict. `ps_density.pipeline.data_analysis_for_the_first_paper` writes to `paper.plots_dir` and reads single GeoTIFFs under `data_root` (seasonal coherence mosaics, EGMS mask, NDVI, OSM class rasters, merged predictions, water/land mask, Rome mask, and shapefiles under `EGMS_data_for_paper_plots/`). See the script for the exact file names.
+The `paper:` block is not required to train or predict. `ps_density.pipeline.data_analysis_for_the_paper` writes to `paper.plots_dir` and reads the GeoTIFFs listed under `paper.input`.
+
+**Coherence mosaics.** Training uses summer only (`train.input.coherence_summer` is the `tiles/` directory from Step 1; the summer mosaic sits beside it as `summer_vv_rho.tif`). The paper figures also need spring, fall, and winter mosaics. If any of `paper.input.coherence_*` is missing, Step 7 calls `prepare_data.prepare_coherence` with that `--season` (same `prepare.aoi_*` tiles, AWS CLI). You can also run it yourself, for example:
+
+```bash
+poetry run python -m ps_density.prepare_data.prepare_coherence --season spring
+```
+
+Without `--output`, `summer` in the training path is replaced by the season so files are not mixed into the summer tiles folder. Step 7 passes `--output` as the mosaic path in `paper.input`.
+
+**NDVI.** Summer and winter mean and standard-deviation rasters are on Zenodo under `input/NDVI/` (`mean_ndvi_S2_su_nan_filled_resized.tif`, `mean_ndvi_S2_wi_nan_filled_resized.tif`, `std_ndvi_S2_su_nan_filled_resized.tif`, `std_ndvi_S2_wi_nan_filled_resized.tif`). They were built from Sentinel-2 in Google Earth Engine: NDVI from 10 m NIR and red, scenes with less than 50% cloud cover in the same seasonal windows as the global coherence product, remaining clouds and shadows masked, then mean and standard deviation over each season. Rasters were later gap-filled and resampled to the other layers’ grid (that step is not in this repository). The GEE script is not published; use the Zenodo GeoTIFFs.
+
+**OSM class rasters.** The combined infrastructure map used for training and paper figures is the Zenodo file `input/OSM/OSM_combined.tif` (`train.input.osm` / `paper.input.osm`). `prepare_osm` writes a timestamped copy and does not replace that file. Paper figures also need one raster per class. Those files are on Zenodo under `input/OSM/separate/` (`buildings.tif`, `railway.tif`, `highway.tif`, `highway_motorway.tif`, `highway_trunk.tif`, `highway_primary.tif`, `highway_secondary.tif`). They use the same OSM tags as `prepare_osm` (buildings, rail, motorway, trunk, primary, secondary) but each class is rasterized on its own (`highway.tif` is all four road types together). `prepare_osm` does not write these files; primary and secondary cannot be recovered from `OSM_combined.tif` because both share the value 0.59. Use the Zenodo GeoTIFFs.
+
+**Merged predictions.** Paper figures use the Zenodo mosaics `results_test/merged_prediction_NL.tif` and `results_test_rome/merged_prediction_Rome.tif` (`paper.input.pred_nl` and `paper.input.pred_rome`). A new run of `pipeline.test_predict` writes `merged_prediction_NL_YYYYMMDD_HHMMSS.tif` and `merged_prediction_Rome_YYYYMMDD_HHMMSS.tif` in the same folders so those originals are not overwritten.
+
+**Other paper rasters** are not downloaded by the scripts. Place the Rome EGMS mask at `paper.input.rome_mask`. The EGMS density raster can be the same file as `train.input.mask_egms`.
+
+**EGMS points for Fig. 15c–d.** The points in `paper.input.egms_plots_dir` were obtained from the EGMS PS product. Only the pickles are provided (`underestimation.pkl` and `overestimation.pkl`), because the shapefiles are too large. Step 7 reads a pickle when it is present.
 
 ## Running the pipeline
 
@@ -150,19 +168,25 @@ Run every step from the repository root after `poetry install` and after `data_r
 poetry run python -m ps_density.<package>.<module>
 ```
 
+Optional, after `poetry install` and with no rasters or `data_root`: confirm that the package imports.
+
+```bash
+poetry run python -c "import ps_density"
+```
+
 ### Prepare training rasters
 
 **Step 1.** `prepare_data.prepare_coherence` — Downloads `summer_vv_rho` tiles from the public Sentinel-1 global coherence bucket and mosaics them. Pass `--season`, `--polarisation`, or `--metric` to change the product.
 
-**Input:** `prepare.aoi_*`, AWS CLI. **Output:** tiles in `train.input.coherence_summer` and a mosaic beside that directory.
+**Input:** `prepare.aoi_`*, AWS CLI. **Output:** tiles in `train.input.coherence_summer` and a mosaic beside that directory.
 
 ```bash
 poetry run python -m ps_density.prepare_data.prepare_coherence
 ```
 
-**Step 2.** `prepare_data.prepare_osm` — Clips `prepare.osm_pbf` per tile with `osmconvert`, rasterizes buildings/roads/rail, and mosaics the tiles. The script does not fetch Geofabrik extracts.
+**Step 2.** `prepare_data.prepare_osm` — Clips `prepare.osm_pbf` per tile with `osmconvert`, rasterizes buildings/roads/rail, and mosaics the tiles. The script does not fetch Geofabrik extracts. Training uses the published `OSM_combined.tif`. A new run writes `OSM_combined_YYYYMMDD_HHMMSS.tif` (and `tiles_YYYYMMDD_HHMMSS/`) beside it so the Zenodo mosaic is not overwritten. The bundled Geofabrik extracts are a subset of those used for the paper map.
 
-**Input:** `prepare.osm_pbf`, `osmconvert`. **Output:** `train.input.osm`.
+**Input:** `prepare.osm_pbf`, `osmconvert`. **Output:** timestamped mosaic next to `train.input.osm`.
 
 ```bash
 poetry run python -m ps_density.prepare_data.prepare_osm
@@ -176,19 +200,19 @@ Open the notebook in the Poetry environment (`poetry install --with dev`).
 
 **Step 4.** `pipeline.train` — Trains the 2-channel U-Net (coherence + OSM) on the Netherlands stack.
 
-**Input:** `train.input.*`, CUDA GPU. **Output:** checkpoints under `train.output.results_dir`. TensorBoard logs go in that directory's `logs/` folder.
+**Input:** `train.input.`*, CUDA GPU. **Output:** checkpoints under `train.output.results_dir`. TensorBoard logs go in that directory's `logs/` folder.
 
 ```bash
 poetry run python -m ps_density.pipeline.train
 ```
 
-Inspect the stack first in `src/ps_density/pipeline/notebooks/train.ipynb`.
+Inspect the stack first in `src/ps_density/pipeline/notebooks/train.ipynb`. That notebook also writes Fig. 2 (`fig2.jpg`) via `plot_sampling_map`.
 
 ### Test
 
 **Step 5.** `pipeline.test_predict` — Netherlands test MAE, review plots, one-channel comparison, and Rome transfer.
 
-**Input:** `test.input.*`, paper checkpoint, optional Rome rasters. **Output:** `test.output.results_dir`, review plots in `test.output.plots_dir`, Rome GeoTIFFs in `test.rome.results_dir`, Rome plots in `test.rome.plots_dir`.
+**Input:** `test.input.`*, paper checkpoint, optional Rome rasters. **Output:** `test.output.results_dir`, review plots in `test.output.plots_dir`, Rome GeoTIFFs in `test.rome.results_dir`, Rome plots in `test.rome.plots_dir`.
 
 ```bash
 poetry run python -m ps_density.pipeline.test_predict
@@ -210,16 +234,10 @@ Preview inputs in `src/ps_density/pipeline/notebooks/predict_region.ipynb`.
 
 ### Paper figures
 
-**Step 7.** `pipeline.data_analysis_for_the_first_paper` — Writes EPS figures to `paper.plots_dir`.
+**Step 7.** `pipeline.data_analysis_for_the_paper` — Reads `paper.input` (the published rasters). Original EPS stay in `paper.plots_dir` (`results_paper/`). A new run writes `results_paper_YYYYMMDD_HHMMSS/`. Missing seasonal coherence mosaics are built with `prepare_data.prepare_coherence` (AWS CLI).
 
 ```bash
-poetry run python -m ps_density.pipeline.data_analysis_for_the_first_paper
-```
-
-A data-free import check:
-
-```bash
-poetry run python -c "import ps_density"
+poetry run python -m ps_density.pipeline.data_analysis_for_the_paper
 ```
 
 ## Pipeline overview
@@ -234,7 +252,7 @@ flowchart TD
     F --> G
     G --> H[pipeline.test_predict]
     G --> I[pipeline.predict_region]
-    H --> J[data_analysis_for_the_first_paper]
+    H --> J[data_analysis_for_the_paper]
 ```
 
 ## Repository structure
@@ -274,29 +292,68 @@ These are imported by pipeline scripts; do not invoke them with `poetry run pyth
 | Step | Script | Reads | Writes |
 | --- | --- | --- | --- |
 | 1 | `prepare_data.prepare_coherence` | `prepare.aoi_*`, public S3 tiles | `train.input.coherence_summer` tiles and mosaic |
-| 2 | `prepare_data.prepare_osm` | `prepare.osm_pbf` | `train.input.osm` |
+| 2 | `prepare_data.prepare_osm` | `prepare.osm_pbf` | timestamped mosaic next to `train.input.osm` |
 | 3 | `prepare_data/prepare_egms.ipynb` | `prepare.egms_links_txt`, `prepare.egms_shp_dir` | filtered link list, merged shapefiles; QGIS writes `train.input.mask_egms` |
 | 4 | `pipeline.train` | `train.input.*` | checkpoints under `train.output.results_dir` |
 | 5 | `pipeline.test_predict` | `test.input.*`, checkpoint, optional `test.rome.*` | `results_test` / `results_test_rome` GeoTIFFs and plots |
 | 6 | `pipeline.predict_region` | `predict.*`, OSM PBF, public coherence tile | `{lat}{lon}_PS_pred.tif` under `results_predict_region` |
-| 7 | `pipeline.data_analysis_for_the_first_paper` | GeoTIFFs under `data_root` | `paper.plots_dir` EPS figures |
+| 7 | `pipeline.data_analysis_for_the_paper` | `paper.input` GeoTIFFs | timestamped folder beside `paper.plots_dir` |
 
 ## Paper figures
 
-Paper figures live in `paper.plots_dir` (default `{data_root}/results_paper/`). They are written only by `pipeline.data_analysis_for_the_first_paper`.
+Every figure is on Zenodo. Only some can be remade from this repository; the rest were drawn in QGIS or as a flowchart and are not generated here.
 
-| Paper figure | Output file | Step |
+Step 7 (`pipeline.data_analysis_for_the_paper`) writes PNG files into a timestamped folder beside `paper.plots_dir` (default `{data_root}/results_paper/`) so the published set is not overwritten. Review patches from Step 5 keep the original `model_pred_b{batch}_{i}.jpg` name and also a `fig*.jpg` copy.
+
+Published review folders on Zenodo:
+
+- Netherlands 2-channel: `results_test/plots/test_pred_54321_20231214_2in/`
+- Netherlands 1-channel: `results_test/plots/test_pred_54321_20231218_1in/`
+- Rome: `results_test_rome/plots/test_pred_54321_20231218_1in/` (folder name is historical; the panels are the 2-channel model. A new run writes `review_Rome_2channel_*`)
+
+A new Step 5 run writes timestamped `review_NL_2channel_*`, `review_NL_1channel_*`, and `review_Rome_2channel_*` instead of those names.
+
+| Paper figure | Recreate? | Source |
 | --- | --- | --- |
-| Fig. 3a | `fig3a.eps` | 7 |
-| Fig. 4a–f | `fig4a.eps` … `fig4f.eps` | 7 |
-| Fig. 6a | `fig6a.eps` | 7 |
-| Fig. 8 | `fig8*.eps` | 7 |
-| Fig. 9 | `fig9.eps` | 7 |
-| Fig. 10 | `fig10.eps` | 7 |
-| Fig. 13e–f | `fig13e.eps`, `fig13f.eps` | 7 |
-| Supplementary regressions | `linear_regression_1in.eps`, `poly_regression_1in.eps` | 7 |
+| Fig. 1 | No | Flowchart on Zenodo only |
+| Fig. 2 | Yes | `src/ps_density/pipeline/notebooks/train.ipynb` (`plot_sampling_map`, `fig2.jpg`) |
+| Fig. 3a | Yes | Step 7, `fig3a.png` |
+| Fig. 3b | No | QGIS map of `input/OSM/OSM_combined.tif` |
+| Fig. 4a | Yes | Step 7, `fig4a.png` |
+| Fig. 4b | No | QGIS map of `input/EGMS/egms_point_denisty.tif` |
+| Fig. 5a–f | Yes | Step 7, `fig5a.png` … `fig5f.png` |
+| Fig. 6a–d | Yes | Step 5, Netherlands 2-channel review plots (see mapping below) |
+| Fig. 7a–b | Yes | Step 7, `fig7a.png`, `fig7b.png` |
+| Fig. 8 | Yes | Step 7, `fig8.png` |
+| Fig. 9 | Yes | Step 7, `fig9.png` |
+| Fig. 10a–f | No | QGIS maps of long-term coherence and summer/winter mean and standard-deviation NDVI rasters |
+| Fig. 11a–l | Yes | Step 7, `fig11a.png` … `fig11l.png` |
+| Fig. 12a–b | Yes | Step 5, Rome 2-channel review plots |
+| Fig. 13a–b | Yes | Step 5, same chips from the 2-channel and 1-channel Netherlands runs (`fig13a_2in` / `fig13a_1in`, `fig13b_2in` / `fig13b_1in`) |
+| Fig. 14a–c | Yes | Step 5, Netherlands 2-channel review plots |
+| Fig. 15a–b | Yes | Step 5, Netherlands 2-channel review plots |
+| Fig. 15c–d | Yes | Step 7, `fig15c.png`, `fig15d.png` |
+| Supplementary regressions | Yes | Step 7 (commented in the script): `linear_regression_1in.png`, `poly_regression_1in.png` |
 
-Review JPEGs from `pipeline.test_predict` (`model_pred_b{batch}_{i}.jpg`) go to `test.output.plots_dir` and are not the paper EPS set.
+Review-plot mapping (`model_pred_b{batch}_{patch}.jpg` → paper name). None of these IDs is used twice except Fig. 13, where the same chips are plotted once per model:
+
+| Paper file | Original JPEG | Published folder |
+| --- | --- | --- |
+| `fig6a.jpg` | `model_pred_b0_13.jpg` | `test_pred_54321_20231214_2in` |
+| `fig6b.jpg` | `model_pred_b2_6.jpg` | `test_pred_54321_20231214_2in` |
+| `fig6c.jpg` | `model_pred_b33_0.jpg` | `test_pred_54321_20231214_2in` |
+| `fig6d.jpg` | `model_pred_b49_0.jpg` | `test_pred_54321_20231214_2in` |
+| `fig12a.jpg` | `model_pred_b13_11.jpg` | Rome `test_pred_54321_20231218_1in` |
+| `fig12b.jpg` | `model_pred_b5_6.jpg` | Rome `test_pred_54321_20231218_1in` |
+| `fig13a_2in.jpg` | `model_pred_b49_8.jpg` | `test_pred_54321_20231214_2in` |
+| `fig13a_1in.jpg` | `model_pred_b49_8.jpg` | `test_pred_54321_20231218_1in` |
+| `fig13b_2in.jpg` | `model_pred_b2_15.jpg` | `test_pred_54321_20231214_2in` |
+| `fig13b_1in.jpg` | `model_pred_b2_15.jpg` | `test_pred_54321_20231218_1in` |
+| `fig14a.jpg` | `model_pred_b14_4.jpg` | `test_pred_54321_20231214_2in` |
+| `fig14b.jpg` | `model_pred_b4_11.jpg` | `test_pred_54321_20231214_2in` |
+| `fig14c.jpg` | `model_pred_b3_0.jpg` | `test_pred_54321_20231214_2in` |
+| `fig15a.jpg` | `model_pred_b47_15.jpg` | `test_pred_54321_20231214_2in` |
+| `fig15b.jpg` | `model_pred_b25_9.jpg` | `test_pred_54321_20231214_2in` |
 
 ## External dependencies
 

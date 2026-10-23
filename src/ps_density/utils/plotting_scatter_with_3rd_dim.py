@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.figure
 from matplotlib.colors import LinearSegmentedColormap
 
+import mpl_scatter_density
+
 from typing import Union
 import warnings
 

@@ -3,6 +3,7 @@
 # Import modules #
 import os
 import pathlib
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -31,14 +32,32 @@ from sklearn.preprocessing import PolynomialFeatures
 import statsmodels.formula.api as smf
 
 from ps_density.config.paths import load_paths
+from ps_density.prepare_data.prepare_coherence import main as prepare_coherence
 from ps_density.utils.plotting_scatter_with_3rd_dim import plot_scatter_denisty
+
+
+def ensure_seasonal_coherence(mosaic_path, season):
+    """Download and mosaic a season if the GeoTIFF (and cached .npy) are missing.
+
+    Uses ``prepare_data.prepare_coherence`` with the same ``prepare.aoi_*`` tiles
+    as training. Writes the mosaic to ``mosaic_path`` and tiles beside it.
+    """
+    mosaic_path = pathlib.Path(str(mosaic_path))
+    npy_path = pathlib.Path(str(mosaic_path).replace(".tif", ".npy"))
+    if mosaic_path.exists() or npy_path.exists():
+        return
+    print(
+        f"Missing {season} mosaic {mosaic_path}; "
+        "running prepare_coherence for that season"
+    )
+    prepare_coherence(season=season, output=mosaic_path)
 
 
 # needed to silence errors with big reading big rasters
 
 
 def main():
-    """Load paper rasters and write EPS figures to ``paper.plots_dir``."""
+    """Load paper rasters and write PNG figures to ``paper.plots_dir``."""
     Image.MAX_IMAGE_PIXELS = None
     pd.options.mode.chained_assignment = None
 
@@ -97,21 +116,20 @@ def main():
         return retval
 
 
-    def load_data(root, filename) -> np.array:
+    def load_data(raster_file) -> np.array:
         """
         This function loads the data from a raster file.
         If the data has been loaded before, it is read from a .npy file.
 
         Args:
-        root (str): the root directory where the data is stored
-        filename (str): the name of the raster file
+        raster_file (str): path to the GeoTIFF (from ``paper.input``)
 
         Returns:
         np.array: the data from the raster file
 
         """
 
-        x_data_path = os.path.join(root, filename)
+        x_data_path = str(raster_file)
         np_arr_path = x_data_path.replace(".tif", ".npy")
 
         if pathlib.Path(np_arr_path).exists():
@@ -125,65 +143,45 @@ def main():
 
     # Read data #
     _cfg = load_paths()
-    root = str(_cfg.data_root)
+    paper_in = _cfg.paper.input
 
-    # Read long-term coherence raster
-    path_ltcoh = os.path.join(root, "input", "global_coh_NL")
+    # Seasonal coherence mosaics (not the train/test tiles/ directory).
+    # Summer is normally produced in step 1; other seasons are fetched here
+    # with prepare_coherence if the mosaic is missing.
+    for season, attr in (
+        ("summer", "coherence_summer"),
+        ("spring", "coherence_spring"),
+        ("fall", "coherence_fall"),
+        ("winter", "coherence_winter"),
+    ):
+        ensure_seasonal_coherence(getattr(paper_in, attr), season)
 
-    x_data = load_data(path_ltcoh, "summer_vv_rho.tif")
-    x1_data = load_data(path_ltcoh, "spring_vv_rho.tif")
-    x2_data = load_data(path_ltcoh, "fall_vv_rho.tif")
-    x3_data = load_data(path_ltcoh, "winter_vv_rho.tif")
+    x_data = load_data(paper_in.coherence_summer)
+    x1_data = load_data(paper_in.coherence_spring)
+    x2_data = load_data(paper_in.coherence_fall)
+    x3_data = load_data(paper_in.coherence_winter)
 
-    # Read nb of points raster
-    y_data_path = os.path.join(root, "input", "mask", "mask_EGMS")
-    y_data = load_data(y_data_path, "r_nb_pts_max_all.tif")
+    y_data = load_data(paper_in.mask_egms)
 
-    # Read mean ndvi
-    z_data_path = os.path.join(root, "input", "ndvi_gee", "new")
-    z1_data = load_data(z_data_path, "mean_ndvi_S2_wi_nan_filled_resized.tif")
-    z2_data = load_data(z_data_path, "mean_ndvi_S2_su_nan_filled_resized.tif")
+    z1_data = load_data(paper_in.ndvi_winter)
+    z2_data = load_data(paper_in.ndvi_summer)
+    z3_data = load_data(paper_in.ndvi_winter_std)
+    z4_data = load_data(paper_in.ndvi_summer_std)
 
-    # Read std ndvi
-    z3_data = load_data(z_data_path, "std_ndvi_S2_wi_nan_filled_resized.tif")
-    z4_data = load_data(z_data_path, "std_ndvi_S2_su_nan_filled_resized.tif")
+    mask_buil_data = load_data(paper_in.osm_buildings)
+    mask_rail_data = load_data(paper_in.osm_railway)
+    mask_highway_data = load_data(paper_in.osm_highway)
+    mask_moto_data = load_data(paper_in.osm_motorway)
+    mask_trunk_data = load_data(paper_in.osm_trunk)
+    mask_primary_data = load_data(paper_in.osm_primary)
+    mask_secondary_data = load_data(paper_in.osm_secondary)
 
-    # Read OSM masks
-    OSM_mask_path = os.path.join(root, "OSM_buildings")
-    mask_buil_data = load_data(OSM_mask_path, "buildings.tif")
-    mask_rail_data = load_data(OSM_mask_path, "railway.tif")
-    mask_highway_data = load_data(OSM_mask_path, "highway.tif")
-    mask_moto_data = load_data(OSM_mask_path, "highway_motorway.tif")
-    mask_trunk_data = load_data(OSM_mask_path, "highway_trunk.tif")
-    mask_primary_data = load_data(OSM_mask_path, "highway_primary.tif")
-    mask_secondary_data = load_data(OSM_mask_path, "highway_secondary.tif")
+    infr_map = load_data(paper_in.osm)
 
-    # Read infrastructure map
-    infr_map = load_data(
-        os.path.join(root, "input", "OSM_input_channel_v2"), "OSM_combined_v2.tif"
-    )
+    pred_test_split = load_data(paper_in.pred_nl)
 
-    # Read prediction data
-    # paper - 1st submission
-    # pred_test_split = load_data(root, "merged_prediction_15122023_fillednd_clipped.tif")
-    # review
-    pred_test_split = load_data(
-        root, "merged_prediction_fixed_stiching_20240607_204020.tif"
-    )
-
-
-    # Read water mask
-    water_mask = load_data(root, "water_land_mask.tif")
-
-    # Ground truth Rome dataset
-    rome_gt_path = os.path.join(root, "input", "Italy", "SNT", "msk")
-    rome_gt = load_data(rome_gt_path, "Rome_nb_pts_des_cropped.tif")
-
-    # Prediction Rome dataset
-    # paper - 1st submission
-    # rome_pred = load_data(root, "merged_prediction_Rome_split_54321_15122023.tif")
-    # review
-    rome_pred = load_data(root, "merged_prediction_fixed_stiching_Rome_20240610_123734.tif")
+    rome_gt = load_data(paper_in.rome_mask)
+    rome_pred = load_data(paper_in.pred_rome)
 
 
     # Create dfs with input to analyse#
@@ -207,18 +205,11 @@ def main():
         "mask_primary": mask_primary_data,
         "mask_secondary": mask_secondary_data,
         "infr_map": infr_map,
-        "water_mask": water_mask,
         "pred_test": pred_test_split,
     }
+    # for k, v in d.items():
+    #     print(k, len(v), getattr(v, "shape", None), getattr(v, "dtype", type(v)))
     df = pd.DataFrame(data=d)
-
-    # ## test - update the osm masks to make sure that the pixels that have many osm types in
-    # are not counted multiple times ##
-    # df['mask_railway'] = np.where(df['infr_map'] == 0.86, 1, 0)
-    # df['mask_motorway'] = np.where(df['infr_map'] == 0.73, 1, 0)
-    # df['mask_trunk'] = np.where(df['infr_map'] == 0.55, 1, 0)
-    # df['mask_primary'] = np.where((df['infr_map'] == 0.59) & (df['mask_primary'] == 1), 1, 0)
-    # df['mask_secondary'] = np.where((df['infr_map'] == 0.59) & (df['mask_secondary'] == 1), 1, 0)
 
     df["coh_mean"] = df["coh_mean"] / 1000
     df["coh_mean_summer"] = df["coh_mean_summer"] / 1000
@@ -248,7 +239,6 @@ def main():
         mask_primary_data,
         mask_secondary_data,
         infr_map,
-        water_mask,
     )
 
     # Create Rome df
@@ -258,13 +248,20 @@ def main():
     }
     df_Rome = pd.DataFrame(data=d_Rome)
 
-    # Specify output directory for plots #
-    outputdir_plots = str(_cfg.paper.plots_dir)
+    # Published figures stay in paper.plots_dir (results_paper/). This run writes
+    # a sibling folder with a timestamp so those originals are not overwritten.
+    plots_base = pathlib.Path(str(_cfg.paper.plots_dir).rstrip("/\\"))
+    outputdir_plots = str(
+        plots_base.parent
+        / f"{plots_base.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    )
+    os.makedirs(outputdir_plots, exist_ok=True)
     if not outputdir_plots.endswith(os.sep):
         outputdir_plots += os.sep
+    print("Paper figures ->", outputdir_plots)
 
 
-    # Fig.3 - PS distribution #
+    # Fig.4 - PS distribution #
     bins = np.arange(0, 80, 1)
     bins = np.append(bins, [300])
 
@@ -344,23 +341,23 @@ def main():
     mark_inset(ax, axins, loc1=2, loc2=4, fc="none", ec="r")
 
     plt.savefig(
-        outputdir_plots + r"fig3a.eps",
+        outputdir_plots + r"fig4a.png",
         dpi=300,
         bbox_inches="tight",
     )
     plt.close()
 
 
-    # Fig.4  Coherence analysis #
-    # Fig.4 a/c/e #
+    # Fig.5  Coherence analysis #
+    # Fig.5 a/c/e #
     # Define the seasons and their corresponding colors
     seasons = ["spring", "summer", "fall", "winter"]
     colors = ["#FFB000", "#FE6100", "#DC267F", "#785EF0"]
 
     plot_setup_list = [
-        ["mask_building", "building", "4a"],
-        ["mask_railway", "railway", "4c"],
-        ["mask_highway", "road", "4e"],
+        ["mask_building", "building", "5a"],
+        ["mask_railway", "railway", "5c"],
+        ["mask_highway", "road", "5e"],
     ]
 
     for i in range(0, 3):
@@ -427,20 +424,20 @@ def main():
         ax.set_ylabel("Share of considered pixels", fontsize=22)
 
         plt.savefig(
-            f"{outputdir_plots}fig{plot_setup[2]}.eps", dpi=300, bbox_inches="tight"
+            f"{outputdir_plots}fig{plot_setup[2]}.png", dpi=300, bbox_inches="tight"
         )
         plt.close()
 
 
-    # Fig.4b/d/f #
+    # Fig.5b/d/f #
     # Define the seasons and their corresponding colors
     seasons = ["summer", "winter"]
     colors = ["#FE6100", "#785EF0"]
 
     plot_setup_list = [
-        ["mask_building", "building", "4b"],
-        ["mask_railway", "railway", "4d"],
-        ["mask_highway", "road", "4f"],
+        ["mask_building", "building", "5b"],
+        ["mask_railway", "railway", "5d"],
+        ["mask_highway", "road", "5f"],
     ]
 
     for i in range(0, 3):
@@ -520,7 +517,7 @@ def main():
         ax.set_ylabel("Share of considered pixels", fontsize=22)
 
         plt.savefig(
-            outputdir_plots + r"fig{}.eps".format(plot_setup[2]),
+            outputdir_plots + r"fig{}.png".format(plot_setup[2]),
             dpi=300,
             bbox_inches="tight",
         )
@@ -562,7 +559,7 @@ def main():
     )
 
 
-    # Fig.6 - Analysis of distribution of pixel with and without PSs #
+    # Fig.3 - Analysis of distribution of pixel with and without PSs #
     # Nb pts analysis
     # At least 1 PS per OSM category
 
@@ -649,7 +646,7 @@ def main():
 
 
     plt.savefig(
-        outputdir_plots + r"fig6a.eps",
+        outputdir_plots + r"fig3a.png",
         dpi=300,
         bbox_inches="tight",
     )
@@ -659,7 +656,7 @@ def main():
     print("Share of pixels with and without PSs by OSM category", values)
 
 
-    # Fig.8 Errors in prediction of test set #
+    # Fig.7 (all pixels) and Fig.11 (per OSM category) — prediction errors on test set #
 
     # Calculate difference between ground truth and prediction
     df["diff_pred"] = df.nbpoints - df.pred_test
@@ -770,8 +767,14 @@ def main():
             fontsize=30,
         )
 
+        if i == 0:
+            error_fig_name = "fig7{}.png".format(plot_label_list[i * 2])
+        else:
+            error_fig_name = "fig11{}.png".format(
+                chr(ord("a") + (i - 1) * 2)
+            )
         plt.savefig(
-            outputdir_plots + r"fig8{}.eps".format(plot_label),
+            outputdir_plots + error_fig_name,
             dpi=300,
             bbox_inches="tight",
         )
@@ -830,15 +833,21 @@ def main():
             fontsize=30,
         )
 
+        if i == 0:
+            error_fig_name = "fig7{}.png".format(plot_label_list[i * 2 + 1])
+        else:
+            error_fig_name = "fig11{}.png".format(
+                chr(ord("a") + (i - 1) * 2 + 1)
+            )
         plt.savefig(
-            outputdir_plots + r"fig8{}.eps".format(plot_label),
+            outputdir_plots + error_fig_name,
             dpi=300,
             bbox_inches="tight",
         )
         plt.close()
 
 
-    # Fig. 9 - plot with location of AoI #
+    # Fig. 8 - plot with location of AoI #
     # Create a GeoDataFrame for the polygons
     gdf = gpd.GeoDataFrame(columns=["geometry", "color", "edge", "alpha"])
     gdf_tiles = gpd.GeoDataFrame(columns=["geometry", "color", "edge", "alpha"])
@@ -906,14 +915,14 @@ def main():
 
 
     plt.savefig(
-        outputdir_plots + r"fig9.eps",
+        outputdir_plots + r"fig8.png",
         dpi=300,
         bbox_inches="tight",
     )
     plt.close()
 
 
-    # Fig.10 Rome vs test - nb of pxls with no PS #
+    # Fig.9 Rome vs test - nb of pxls with no PS #
     # Define bins and categories
     bins = [0, 5, 10, 15, 20, 30, 40, 1000]
     bin_cat = (
@@ -963,14 +972,14 @@ def main():
     ax.legend(loc="best", fontsize=18)
 
     plt.savefig(
-        outputdir_plots + r"fig10.eps",
+        outputdir_plots + r"fig9.png",
         dpi=300,
         bbox_inches="tight",
     )
     plt.close()
 
 
-    # Fig.13 Scatter plot of displacement #
+    # Fig.15 Scatter plot of displacement #
     # Define plot settings
     coordinates = [
         (
@@ -980,7 +989,7 @@ def main():
             [5.29, 5.3, 5.31],
             [52.38, 52.39],
             0.4,
-            "fig13e.eps",
+            "fig15c.png",
             "overestimation_2",
             "clipped2.shp",
             "underestimation.pkl",
@@ -992,7 +1001,7 @@ def main():
             [5.29, 5.3, 5.31],
             [52.38, 52.39],
             0.85,
-            "fig13f.eps",
+            "fig15d.png",
             "overestimation_3",
             "clipped.shp",
             "overestimation.pkl",
@@ -1013,9 +1022,9 @@ def main():
     ) in coordinates:
         # Define the paths
         shapefile_path = os.path.join(
-            root, "EGMS_data_for_paper_plots", shp_folder, shp_file
+            str(paper_in.egms_plots_dir), shp_folder, shp_file
         )
-        pickle_path = os.path.join(root, "EGMS_data_for_paper_plots", pkl_file)
+        pickle_path = os.path.join(str(paper_in.egms_plots_dir), pkl_file)
 
         # Check if the pickle file exists
         if os.path.exists(pickle_path):
@@ -1081,308 +1090,309 @@ def main():
         plt.close()
 
 
-    # Linear regresssion test #
+    # # Regression results just for review response #
+    # # Linear regresssion test #
 
-    # Fitting straight line
-    # Linear y = ax+b
-    equation = "nbpoints ~ coh_mean"
-    y_hat_ver = "lin"
-    title = "y = {:.2f}x + {:.2f}"
+    # # Fitting straight line
+    # # Linear y = ax+b
+    # equation = "nbpoints ~ coh_mean"
+    # y_hat_ver = "lin"
+    # title = "y = {:.2f}x + {:.2f}"
 
 
-    m = smf.ols(equation, data=df).fit()
-    print(m.summary())
+    # m = smf.ols(equation, data=df).fit()
+    # print(m.summary())
 
-    x = df["coh_mean"]
-    y = df["nbpoints"]
+    # x = df["coh_mean"]
+    # y = df["nbpoints"]
 
-    x_t = x
-    y_t = y
+    # x_t = x
+    # y_t = y
 
-    alpha = 0.05
+    # alpha = 0.05
 
 
-    yhat = m.fittedvalues
-    predictions = m.get_prediction(df).summary_frame(alpha)
-    plot_title = title.format(m.params[1], m.params[0])
+    # yhat = m.fittedvalues
+    # predictions = m.get_prediction(df).summary_frame(alpha)
+    # plot_title = title.format(m.params[1], m.params[0])
 
-    plot_title = (
-        plot_title
-        + "\n R-squared: {:.3f}".format(m.rsquared)
-        + "\n RMSE: {:.3f}".format(np.sqrt(m.mse_resid))
-    )
+    # plot_title = (
+    #     plot_title
+    #     + "\n R-squared: {:.3f}".format(m.rsquared)
+    #     + "\n RMSE: {:.3f}".format(np.sqrt(m.mse_resid))
+    # )
 
-    # print('\n\n', plot_title, '\n R-squared: {:.3f}'.format(m.rsquared),
-    #       '\n Standard error of regression: {:.2f} \n\n'.format(np.sqrt(m.mse_resid)))
+    # # print('\n\n', plot_title, '\n R-squared: {:.3f}'.format(m.rsquared),
+    # #       '\n Standard error of regression: {:.2f} \n\n'.format(np.sqrt(m.mse_resid)))
 
 
-    # Fitting plot
-    df_sample = df.sample(frac=0.1)
-    x_s = df_sample["coh_mean"]
-    y_s = df_sample["nbpoints"]
+    # # Fitting plot
+    # df_sample = df.sample(frac=0.1)
+    # x_s = df_sample["coh_mean"]
+    # y_s = df_sample["nbpoints"]
 
 
-    # fig, ax = plt.subplots(figsize=(8, 6))
-    # ax.scatter(x_s, y_s, label="Data", s=0.2)
-    # ax.scatter(x, yhat, color="r", label="Predicted")
-    # legend = ax.legend(loc="best")
-    # ax.set_title(plot_title)
-    # ax.set_xlabel("coh")
-    # ax.set_ylabel("nbpoints")
-    # ax.set_ylim([0, 200])
+    # # fig, ax = plt.subplots(figsize=(8, 6))
+    # # ax.scatter(x_s, y_s, label="Data", s=0.2)
+    # # ax.scatter(x, yhat, color="r", label="Predicted")
+    # # legend = ax.legend(loc="best")
+    # # ax.set_title(plot_title)
+    # # ax.set_xlabel("coh")
+    # # ax.set_ylabel("nbpoints")
+    # # ax.set_ylim([0, 200])
 
 
-    # plot correlation between coherence and nb of points
-    x = df["coh_mean"].values
-    y = df["nbpoints"].values
-    title = "Long-term coherence vs number of points in a pixel \n (all pixels)"
-    xlabel = "coh_mean"
-    ylabel = "nbpoints"
-    x_limit = 1
-    y_limit = 100
-    vmax = 200
-    y_limit_min = 0
-    x_limit_min = 0
+    # # plot correlation between coherence and nb of points
+    # x = df["coh_mean"].values
+    # y = df["nbpoints"].values
+    # title = "Long-term coherence vs number of points in a pixel \n (all pixels)"
+    # xlabel = "coh_mean"
+    # ylabel = "nbpoints"
+    # x_limit = 1
+    # y_limit = 100
+    # vmax = 200
+    # y_limit_min = 0
+    # x_limit_min = 0
 
-    dpi = 23
-    # dpi = 10
+    # dpi = 23
+    # # dpi = 10
 
 
-    fig, ax = plot_scatter_denisty(
-        x, y, title, xlabel, ylabel, x_limit, y_limit, vmax, x_limit_min, y_limit_min, dpi
-    )
+    # fig, ax = plot_scatter_denisty(
+    #     x, y, title, xlabel, ylabel, x_limit, y_limit, vmax, x_limit_min, y_limit_min, dpi
+    # )
 
-    plt.scatter(x, predictions["mean"], label="Regression line")
+    # plt.scatter(x, predictions["mean"], label="Regression line")
 
-    plt.savefig(
-        os.path.join(outputdir_plots, "linear_regression_1in.eps"),
-        dpi=300,
-        bbox_inches="tight",
-    )
-    plt.close()
+    # plt.savefig(
+    #     os.path.join(outputdir_plots, "linear_regression_1in.png"),
+    #     dpi=300,
+    #     bbox_inches="tight",
+    # )
+    # plt.close()
 
 
-    # # Residuals plot
-    # fig, ax = plt.subplots(figsize=(8, 6))
-    # ax.scatter(yhat, m.resid, label="Residuals", s=0.5)
-    # plt.axhline(0, color="darkorange", linestyle="--")
-    # legend = ax.legend(loc="best")
-    # ax.set_title("Fitted vs residuals")
-    # ax.set_xlabel("Fitted/predicted y")
-    # ax.set_ylabel("Residuals")
+    # # # Residuals plot
+    # # fig, ax = plt.subplots(figsize=(8, 6))
+    # # ax.scatter(yhat, m.resid, label="Residuals", s=0.5)
+    # # plt.axhline(0, color="darkorange", linestyle="--")
+    # # legend = ax.legend(loc="best")
+    # # ax.set_title("Fitted vs residuals")
+    # # ax.set_xlabel("Fitted/predicted y")
+    # # ax.set_ylabel("Residuals")
 
-    mse = mean_squared_error(y, yhat)
-    rmse = np.sqrt(mse)
-    print("rmse: ", rmse)
+    # mse = mean_squared_error(y, yhat)
+    # rmse = np.sqrt(mse)
+    # print("rmse: ", rmse)
 
-    mae = mean_absolute_error(y, yhat)
-    print("mae: ", mae)
+    # mae = mean_absolute_error(y, yhat)
+    # print("mae: ", mae)
 
 
-    # Fitting polynomial
-    # polynomial y = a(np.sqrt(x))^2 + b*np.sqrt(x) + c
-    equation = "nbpoints ~ np.sqrt(coh_mean) + I(np.sqrt(coh_mean)**2)"
-    x_t = np.sqrt(x)
-    y_t = y
-    y_hat_ver = "poly"
-    title = "y = {:.2f}sqrt(x) ^2 + {:.2f}sqrt(x)  + {:.2f}"
-
-
-    m = smf.ols(equation, data=df).fit()
-    print(m.summary())
-
-    x = df["coh_mean"]
-    y = df["nbpoints"]
-
-    alpha = 0.05
-
-    y_hat_ver == "poly"
-    yhat = m.fittedvalues
-    predictions = m.get_prediction(df).summary_frame(alpha)
-    plot_title = title.format(m.params[2], m.params[1], m.params[0])
-
-    plot_title = (
-        f"{plot_title}\n R-squared: {m.rsquared:.3f}" f"\n RMSE: {np.sqrt(m.mse_resid):.3f}"
-    )
-
-    # print('\n\n', plot_title, '\n R-squared: {:.3f}'.format(m.rsquared),
-    #       '\n Standard error of regression: {:.2f} \n\n'.format(np.sqrt(m.mse_resid)))
-
-
-    # Fitting plot
-    df_sample = df.sample(frac=0.1)
-    x_s = df_sample["coh_mean"]
-    y_s = df_sample["nbpoints"]
-
-
-    # fig, ax = plt.subplots(figsize=(8, 6))
-    # ax.scatter(x_s, y_s, label="Data", s=0.2)
-    # ax.scatter(x, yhat, color="r", label="Predicted")
-    # legend = ax.legend(loc="best")
-    # ax.set_title(plot_title)
-    # ax.set_xlabel("coh")
-    # ax.set_ylabel("nbpoints")
-    # ax.set_ylim([0, 200])
-
-
-    # plot correlation between coherence and nb of points
-    x = df["coh_mean"].values
-    y = df["nbpoints"].values
-    title = "Long-term coherence vs number of points in a pixel \n (all pixels)"
-    xlabel = "coh_mean"
-    ylabel = "nbpoints"
-    x_limit = 1
-    y_limit = 100
-    vmax = 200
-    y_limit_min = 0
-    x_limit_min = 0
-
-    dpi = 23
-    # dpi = 10
-
-
-    fig, ax = plot_scatter_denisty(
-        x, y, title, xlabel, ylabel, x_limit, y_limit, vmax, x_limit_min, y_limit_min, dpi
-    )
-
-    plt.scatter(x, predictions["mean"], label="Regression line")
-    plt.savefig(
-        os.path.join(outputdir_plots, "poly_regression_1in.eps"),
-        dpi=300,
-        bbox_inches="tight",
-    )
-    plt.close()
-
-
-    # # Residuals plot
-    # fig, ax = plt.subplots(figsize=(8, 6))
-    # ax.scatter(yhat, m.resid, label="Residuals", s=0.5)
-    # plt.axhline(0, color="darkorange", linestyle="--")
-    # legend = ax.legend(loc="best")
-    # ax.set_title("Fitted vs residuals")
-    # ax.set_xlabel("Fitted/predicted y")
-    # ax.set_ylabel("Residuals")
-
-    mse = mean_squared_error(y, yhat)
-    rmse = np.sqrt(mse)
-    print("rmse: ", rmse)
-
-    mae = mean_absolute_error(y, yhat)
-    print("mae: ", mae)
-
-
-    np.random.seed(0)
-    # ONE INPUT
-    # Read data
-    X = df["coh_mean"].values
-    y = df["nbpoints"].values
-
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-    # Reshape the data so that the first dimension is the number of samples
-    # and the second dimension is the number of features
-    X_train = X_train[:, np.newaxis]
-    X_test = X_test[:, np.newaxis]
-
-    # Create and train the linear regression model
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-
-    # Make predictions and evaluate the model
-    y_pred = model.predict(X_test)
-    print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
-    print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
-    print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
-    print(f"Coefficients: {model.coef_}")
-    print(f"Intercept: {model.intercept_}")
-
-    # TWO INPUTS
-    # Read data
-    X = df[["coh_mean", "infr_map"]].values
-    y = df["nbpoints"].values
-
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-    # Create and train the linear regression model
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-
-    # Make predictions and evaluate the model
-    y_pred = model.predict(X_test)
-    print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
-    print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
-    print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
-    print(f"Coefficients: {model.coef_}")
-    print(f"Intercept: {model.intercept_}")
-
-
-    # Fitting polynomial
-
-
-    # ONE INPUT
-    # Read data
-    X = df[["coh_mean"]].values
-    y = df["nbpoints"].values
-
-    # Create PolynomialFeatures object with degree=2
-    poly = PolynomialFeatures(degree=2)
-
-    # Transform the features to 2nd degree polynomial features
-    X_poly = poly.fit_transform(X)
-
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_poly, y, test_size=0.2, random_state=0
-    )
+    # # Fitting polynomial
+    # # polynomial y = a(np.sqrt(x))^2 + b*np.sqrt(x) + c
+    # equation = "nbpoints ~ np.sqrt(coh_mean) + I(np.sqrt(coh_mean)**2)"
+    # x_t = np.sqrt(x)
+    # y_t = y
+    # y_hat_ver = "poly"
+    # title = "y = {:.2f}sqrt(x) ^2 + {:.2f}sqrt(x)  + {:.2f}"
+
+
+    # m = smf.ols(equation, data=df).fit()
+    # print(m.summary())
+
+    # x = df["coh_mean"]
+    # y = df["nbpoints"]
+
+    # alpha = 0.05
+
+    # y_hat_ver == "poly"
+    # yhat = m.fittedvalues
+    # predictions = m.get_prediction(df).summary_frame(alpha)
+    # plot_title = title.format(m.params[2], m.params[1], m.params[0])
+
+    # plot_title = (
+    #     f"{plot_title}\n R-squared: {m.rsquared:.3f}" f"\n RMSE: {np.sqrt(m.mse_resid):.3f}"
+    # )
+
+    # # print('\n\n', plot_title, '\n R-squared: {:.3f}'.format(m.rsquared),
+    # #       '\n Standard error of regression: {:.2f} \n\n'.format(np.sqrt(m.mse_resid)))
+
+
+    # # Fitting plot
+    # df_sample = df.sample(frac=0.1)
+    # x_s = df_sample["coh_mean"]
+    # y_s = df_sample["nbpoints"]
+
+
+    # # fig, ax = plt.subplots(figsize=(8, 6))
+    # # ax.scatter(x_s, y_s, label="Data", s=0.2)
+    # # ax.scatter(x, yhat, color="r", label="Predicted")
+    # # legend = ax.legend(loc="best")
+    # # ax.set_title(plot_title)
+    # # ax.set_xlabel("coh")
+    # # ax.set_ylabel("nbpoints")
+    # # ax.set_ylim([0, 200])
+
+
+    # # plot correlation between coherence and nb of points
+    # x = df["coh_mean"].values
+    # y = df["nbpoints"].values
+    # title = "Long-term coherence vs number of points in a pixel \n (all pixels)"
+    # xlabel = "coh_mean"
+    # ylabel = "nbpoints"
+    # x_limit = 1
+    # y_limit = 100
+    # vmax = 200
+    # y_limit_min = 0
+    # x_limit_min = 0
+
+    # dpi = 23
+    # # dpi = 10
+
+
+    # fig, ax = plot_scatter_denisty(
+    #     x, y, title, xlabel, ylabel, x_limit, y_limit, vmax, x_limit_min, y_limit_min, dpi
+    # )
+
+    # plt.scatter(x, predictions["mean"], label="Regression line")
+    # plt.savefig(
+    #     os.path.join(outputdir_plots, "poly_regression_1in.png"),
+    #     dpi=300,
+    #     bbox_inches="tight",
+    # )
+    # plt.close()
+
+
+    # # # Residuals plot
+    # # fig, ax = plt.subplots(figsize=(8, 6))
+    # # ax.scatter(yhat, m.resid, label="Residuals", s=0.5)
+    # # plt.axhline(0, color="darkorange", linestyle="--")
+    # # legend = ax.legend(loc="best")
+    # # ax.set_title("Fitted vs residuals")
+    # # ax.set_xlabel("Fitted/predicted y")
+    # # ax.set_ylabel("Residuals")
+
+    # mse = mean_squared_error(y, yhat)
+    # rmse = np.sqrt(mse)
+    # print("rmse: ", rmse)
+
+    # mae = mean_absolute_error(y, yhat)
+    # print("mae: ", mae)
+
+
+    # np.random.seed(0)
+    
+    # # ONE INPUT
+    # # Read data
+    # X = df["coh_mean"].values
+    # y = df["nbpoints"].values
+
+    # # Split the data into training and testing sets
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
     # # Reshape the data so that the first dimension is the number of samples
-    # and the second dimension is the number of features
+    # # and the second dimension is the number of features
     # X_train = X_train[:, np.newaxis]
     # X_test = X_test[:, np.newaxis]
 
-    # Create and train the linear regression model
-    model = LinearRegression()
-    model.fit(X_train, y_train)
+    # # Create and train the linear regression model
+    # model = LinearRegression()
+    # model.fit(X_train, y_train)
 
-    # Make predictions and evaluate the model
-    y_pred = model.predict(X_test)
-    print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
-    print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
-    print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
-    print(f"Coefficients: {model.coef_}")
-    print(f"Intercept: {model.intercept_}")
+    # # Make predictions and evaluate the model
+    # y_pred = model.predict(X_test)
+    # print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
+    # print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
+    # print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
+    # print(f"Coefficients: {model.coef_}")
+    # print(f"Intercept: {model.intercept_}")
+
+    # # TWO INPUTS
+    # # Read data
+    # X = df[["coh_mean", "infr_map"]].values
+    # y = df["nbpoints"].values
+
+    # # Split the data into training and testing sets
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+    # # Create and train the linear regression model
+    # model = LinearRegression()
+    # model.fit(X_train, y_train)
+
+    # # Make predictions and evaluate the model
+    # y_pred = model.predict(X_test)
+    # print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
+    # print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
+    # print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
+    # print(f"Coefficients: {model.coef_}")
+    # print(f"Intercept: {model.intercept_}")
 
 
-    # TWO INPUTS
-    # Read data
-    X = df[["coh_mean", "infr_map"]].values
-    y = df["nbpoints"].values
+    # # Fitting polynomial
 
-    # Create PolynomialFeatures object with degree=2
-    poly = PolynomialFeatures(degree=2)
+    # # ONE INPUT
+    # # Read data
+    # X = df[["coh_mean"]].values
+    # y = df["nbpoints"].values
 
-    # Transform the features to 2nd degree polynomial features
-    X_poly = poly.fit_transform(X)
+    # # Create PolynomialFeatures object with degree=2
+    # poly = PolynomialFeatures(degree=2)
 
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_poly, y, test_size=0.2, random_state=0
-    )
+    # # Transform the features to 2nd degree polynomial features
+    # X_poly = poly.fit_transform(X)
 
-    # Create and train the linear regression model
-    model = LinearRegression()
-    model.fit(X_train, y_train)
+    # # Split the data into training and testing sets
+    # X_train, X_test, y_train, y_test = train_test_split(
+    #     X_poly, y, test_size=0.2, random_state=0
+    # )
 
-    # Make predictions and evaluate the model
-    y_pred = model.predict(X_test)
-    print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
-    print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
-    print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
-    print(f"Coefficients: {model.coef_}")
-    print(f"Intercept: {model.intercept_}")
-    print(f"Powers that should be used in the equation: {poly.powers_}")
+    # # # Reshape the data so that the first dimension is the number of samples
+    # # and the second dimension is the number of features
+    # # X_train = X_train[:, np.newaxis]
+    # # X_test = X_test[:, np.newaxis]
+
+    # # Create and train the linear regression model
+    # model = LinearRegression()
+    # model.fit(X_train, y_train)
+
+    # # Make predictions and evaluate the model
+    # y_pred = model.predict(X_test)
+    # print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
+    # print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
+    # print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
+    # print(f"Coefficients: {model.coef_}")
+    # print(f"Intercept: {model.intercept_}")
+
+
+    # # TWO INPUTS
+    # # Read data
+    # X = df[["coh_mean", "infr_map"]].values
+    # y = df["nbpoints"].values
+
+    # # Create PolynomialFeatures object with degree=2
+    # poly = PolynomialFeatures(degree=2)
+
+    # # Transform the features to 2nd degree polynomial features
+    # X_poly = poly.fit_transform(X)
+
+    # # Split the data into training and testing sets
+    # X_train, X_test, y_train, y_test = train_test_split(
+    #     X_poly, y, test_size=0.2, random_state=0
+    # )
+
+    # # Create and train the linear regression model
+    # model = LinearRegression()
+    # model.fit(X_train, y_train)
+
+    # # Make predictions and evaluate the model
+    # y_pred = model.predict(X_test)
+    # print(f"Mean squared error: {mean_squared_error(y_test, y_pred)}")
+    # print(f"Mean absolute error: {mean_absolute_error(y_test, y_pred)}")
+    # print(f"Coefficient of determination (R^2): {r2_score(y_test, y_pred)}")
+    # print(f"Coefficients: {model.coef_}")
+    # print(f"Intercept: {model.intercept_}")
+    # print(f"Powers that should be used in the equation: {poly.powers_}")
 
 
 if __name__ == "__main__":

@@ -42,6 +42,31 @@ def _box_polygon(box) -> Polygon:
     return Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
 
 
+def _split_region_polygons(split_dataset) -> list:
+    """Polygons of ``random_bbox_splitting`` regions in a GeoDataset index.
+
+    Duplicate spatial boxes (common on intersection datasets) are dropped.
+
+    Args:
+        split_dataset: One of the datasets returned by ``random_bbox_splitting``.
+
+    Returns:
+        Unique split-region polygons in the dataset CRS.
+    """
+    polygons = []
+    seen = set()
+    for hit in split_dataset.index.intersection(
+        split_dataset.index.bounds, objects=True
+    ):
+        minx, maxx, miny, maxy = hit.bounds[:4]
+        key = (round(minx, 8), round(maxx, 8), round(miny, 8), round(maxy, 8))
+        if key in seen:
+            continue
+        seen.add(key)
+        polygons.append(_box_polygon((minx, maxx, miny, maxy)))
+    return polygons
+
+
 def _take_batch(dataloader: DataLoader, batch_index: int):
     """Return one batch, or raise if the loader is shorter than requested."""
     last_index = -1
@@ -63,6 +88,7 @@ def plot_sampling_map(
     train_batch: int = 50,
     val_batch: int = 5,
     test_batch: int = 20,
+    plot_split_regions: bool = False,
     save_path: Optional[str] = None,
 ) -> Figure:
     """Draw Netherlands tiles and one batch of train, val, and test chips.
@@ -71,8 +97,9 @@ def plot_sampling_map(
     Training chips come from ``RandomGeoSampler``. Validation and test chips
     come from ``GridGeoSampler`` with stride ``patch_size - 8``.
 
-    Chip colours: train blue, validation red, test green. The rectangles are
-    the sampled chip footprints, not hand-drawn split regions.
+    Chip colours: train blue, validation red, test green. With
+    ``plot_split_regions=True``, the same colours at lower opacity show the
+    full split bounding boxes stored in each GeoDataset index.
 
     Args:
         dataset: TorchGeo intersection dataset used for training.
@@ -82,6 +109,7 @@ def plot_sampling_map(
         train_batch: Train-batch index to draw.
         val_batch: Validation-batch index to draw.
         test_batch: Test-batch index to draw.
+        plot_split_regions: If True, overlay train/val/test index bounds.
         save_path: Optional path for a JPEG (for example ``fig2.jpg``).
 
     Returns:
@@ -149,6 +177,18 @@ def plot_sampling_map(
     gpd.GeoDataFrame({"geometry": tile_polygons}).plot(
         ax=ax, color="none", edgecolor="black"
     )
+
+    if plot_split_regions:
+        for split, color in (
+            (train_dataset, "blue"),
+            (val_dataset, "red"),
+            (test_dataset, "green"),
+        ):
+            polygons = _split_region_polygons(split)
+            if polygons:
+                gpd.GeoDataFrame({"geometry": polygons}).plot(
+                    ax=ax, color=color, edgecolor="none", alpha=0.2
+                )
 
     for _name, (batch, color) in batches.items():
         polygons = [_box_polygon(box) for box in batch["bbox"]]

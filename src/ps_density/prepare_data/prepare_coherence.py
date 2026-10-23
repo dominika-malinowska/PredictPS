@@ -1,6 +1,9 @@
-"""Download 1x1 degree summer VV rho tiles and mosaic them.
+"""Download 1x1 degree Sentinel-1 global coherence tiles and mosaic them.
 
-Train and test read the tiles directory. The mosaic is written beside it.
+Train and test read the summer tiles directory. The mosaic is written beside it.
+Pass ``--season`` for spring, fall, or winter. Without ``--output``, the
+summer path in ``train.input.coherence_summer`` has ``summer`` replaced by
+that season so tiles are not mixed into the training folder.
 """
 
 from __future__ import annotations
@@ -80,16 +83,24 @@ def download_tile(lat_f, lon_f, dest_path, season, polarisation, metric):
     return dest_path
 
 
-def main(season="summer", polarisation="vv", metric="rho"):
+def main(season="summer", polarisation="vv", metric="rho", output=None):
     """Download tiles for ``prepare.aoi_*`` and mosaic them.
 
     Args:
         season: Coherence season in the product name.
         polarisation: Polarisation in the product name.
         metric: Metric in the product name.
+        output: Optional mosaic GeoTIFF or tiles directory. Defaults to
+            ``train.input.coherence_summer``, with ``summer`` replaced in the
+            path when ``season`` is not summer.
     """
     cfg = load_paths()
-    configured = Path(cfg.train.input.coherence_summer)
+    if output is not None:
+        configured = Path(output)
+    else:
+        configured = Path(cfg.train.input.coherence_summer)
+        if season != "summer":
+            configured = Path(str(configured).replace("summer", season))
     product_name = f"{season}_{polarisation}_{metric}.tif"
     # Train and test point this path at the tiles directory. A .tif path is the
     # mosaic, and the tiles are written beside it.
@@ -113,9 +124,9 @@ def main(season="summer", polarisation="vv", metric="rho"):
             download_tile(lat_f, lon_f, dest, season, polarisation, metric)
         )
 
-    print(f"Mosaicking {len(tile_paths)} tiles into {mosaic_path}")
+    print(f"Mosaicking {len(tile_paths)} {season} tiles into {mosaic_path}")
     mosaic_tifs(tile_paths, mosaic_path)
-    print("Coherence preparation done")
+    print(f"{season.capitalize()} coherence preparation done")
 
 
 if __name__ == "__main__":
@@ -123,5 +134,15 @@ if __name__ == "__main__":
     parser.add_argument("--season", default="summer")
     parser.add_argument("--polarisation", default="vv")
     parser.add_argument("--metric", default="rho")
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Mosaic GeoTIFF or tiles directory (default: train.input.coherence_summer)",
+    )
     args = parser.parse_args()
-    main(season=args.season, polarisation=args.polarisation, metric=args.metric)
+    main(
+        season=args.season,
+        polarisation=args.polarisation,
+        metric=args.metric,
+        output=args.output,
+    )

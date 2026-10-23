@@ -365,6 +365,7 @@ def plot_input_pred_patch(
     specific_batch=None,
     specific_patch=None,
     box_coords=None,
+    paper_fig=None,
 ):
     """
     The function generates plots of the input, ground truth, and predicted patches for each patch in a batch
@@ -382,6 +383,9 @@ def plot_input_pred_patch(
         specific_batch (int): The specific batch to plot.
         specific_patch (int): The specific patch to plot.
         box_coords (list): The coordinates of the box to plot.
+        paper_fig (str): Optional paper filename stem (for example ``fig6a``).
+            The JPEG is always saved as ``model_pred_b{batch}_{i}.jpg``; when
+            this is set, a second copy is written as ``{paper_fig}.jpg``.
 
     Returns:
         df_mae_test (pandas DataFrame): The DataFrame containing the Mean Absolute Error (MAE) values.
@@ -579,6 +583,12 @@ def plot_input_pred_patch(
                 dpi=600,
                 bbox_inches="tight",
             )
+            if paper_fig:
+                plt.savefig(
+                    os.path.join(outputdir_plots, f"{paper_fig}.jpg"),
+                    dpi=600,
+                    bbox_inches="tight",
+                )
 
             plt.close()
 

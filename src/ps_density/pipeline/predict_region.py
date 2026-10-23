@@ -130,9 +130,6 @@ def main():
     model = PixelwiseRegressionTask.load_from_checkpoint(
         checkpoint_path=resolve_paper_checkpoint(_cfg.predict.checkpoint)
     )
-    plots_folder_name = "test_pred_54321_20231214_2in"
-
-
     # Set-up seed
     seed = 54321
     seed_everything(seed, workers=True)
@@ -216,7 +213,7 @@ def main():
         experiment_dir,
         "{}{}".format(lat_f, lon_f),
         "infr_map",
-        "{}{}_infrs_map.tif".format(lat_f, lon_f),
+        "{}{}_infr_map.tif".format(lat_f, lon_f),
     )
 
     # Check if the infrastructure map already exists

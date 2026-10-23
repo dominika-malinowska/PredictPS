@@ -95,7 +95,32 @@ predict:
     results_dir: "{data_root}/results_predict_region"
 
 # -------------------------------------------------------------------------
-# paper — ps_density.pipeline.data_analysis_for_the_first_paper only
+# paper — ps_density.pipeline.data_analysis_for_the_paper only.
+# Coherence keys are mosaic GeoTIFFs (not the train tiles/ directory).
+# Summer usually comes from prepare_coherence. Spring/fall/winter mosaics
+# are downloaded by the paper script if missing (same prepare.aoi_*).
 # -------------------------------------------------------------------------
 paper:
   plots_dir: "{data_root}/results_paper"
+  input:
+    coherence_summer: "{data_root}/input/coherence_summer_NL/summer_vv_rho/summer_vv_rho.tif"
+    coherence_spring: "{data_root}/input/coherence_spring_NL/spring_vv_rho/spring_vv_rho.tif"
+    coherence_fall: "{data_root}/input/coherence_fall_NL/fall_vv_rho/fall_vv_rho.tif"
+    coherence_winter: "{data_root}/input/coherence_winter_NL/winter_vv_rho/winter_vv_rho.tif"
+    mask_egms: "{data_root}/input/mask/mask_EGMS/egms_point_denisty.tif"
+    ndvi_winter: "{data_root}/input/NDVI/mean_ndvi_S2_wi_nan_filled_resized.tif"
+    ndvi_summer: "{data_root}/input/NDVI/mean_ndvi_S2_su_nan_filled_resized.tif"
+    ndvi_winter_std: "{data_root}/input/NDVI/std_ndvi_S2_wi_nan_filled_resized.tif"
+    ndvi_summer_std: "{data_root}/input/NDVI/std_ndvi_S2_su_nan_filled_resized.tif"
+    osm: "{data_root}/input/OSM/OSM_combined.tif"
+    osm_buildings: "{data_root}/input/OSM/separate/buildings.tif"
+    osm_railway: "{data_root}/input/OSM/separate/railway.tif"
+    osm_highway: "{data_root}/input/OSM/separate/highway.tif"
+    osm_motorway: "{data_root}/input/OSM/separate/highway_motorway.tif"
+    osm_trunk: "{data_root}/input/OSM/separate/highway_trunk.tif"
+    osm_primary: "{data_root}/input/OSM/separate/highway_primary.tif"
+    osm_secondary: "{data_root}/input/OSM/separate/highway_secondary.tif"
+    pred_nl: "{data_root}/results_test/merged_prediction_NL.tif"
+    pred_rome: "{data_root}/results_test_rome/merged_prediction_Rome.tif"
+    rome_mask: "{data_root}/input/Italy/SNT/msk/Rome_nb_pts_des_cropped.tif"
+    egms_plots_dir: "{data_root}/EGMS_data_for_paper_plots"

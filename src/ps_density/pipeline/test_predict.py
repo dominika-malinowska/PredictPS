@@ -219,7 +219,8 @@ def main():
     model = PixelwiseRegressionTask.load_from_checkpoint(
         checkpoint_path=resolve_paper_checkpoint(_cfg.test.checkpoint)
     )
-    plots_folder_name = "test_pred_54321_20231214_2in"
+    plots_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    plots_folder_name = f"review_NL_2channel_{plots_stamp}"
 
 
     # Set-up seed
@@ -276,7 +277,7 @@ def main():
     start = timeit.default_timer()  # Measuring the time
     file_name = os.path.join(
         experiment_dir,
-        "merged_prediction_fixed_stiching_{}.tif".format(
+        "merged_prediction_NL_{}.tif".format(
             datetime.now().strftime("%Y%m%d_%H%M%S")
         ),
     )
@@ -349,6 +350,7 @@ def main():
         outputdir_plots,
         specific_batch=0,
         specific_patch=13,
+        paper_fig="fig6a",
     )
 
     df_mae_test = plot_input_pred_patch(
@@ -362,6 +364,7 @@ def main():
         outputdir_plots,
         specific_batch=2,
         specific_patch=6,
+        paper_fig="fig6b",
     )
 
     df_mae_test = plot_input_pred_patch(
@@ -375,6 +378,7 @@ def main():
         outputdir_plots,
         specific_batch=33,
         specific_patch=0,
+        paper_fig="fig6c",
     )
 
     df_mae_test = plot_input_pred_patch(
@@ -388,6 +392,7 @@ def main():
         outputdir_plots,
         specific_batch=49,
         specific_patch=0,
+        paper_fig="fig6d",
     )
 
 
@@ -405,6 +410,7 @@ def main():
         specific_batch=49,
         specific_patch=8,
         box_coords=[40, 25, 24, 20],
+        paper_fig="fig13a_2in",
     )
 
 
@@ -420,6 +426,7 @@ def main():
         specific_batch=2,
         specific_patch=15,
         box_coords=[25, 15, 39, 10],
+        paper_fig="fig13b_2in",
     )
 
 
@@ -435,6 +442,7 @@ def main():
         outputdir_plots,
         specific_batch=14,
         specific_patch=4,
+        paper_fig="fig14a",
     )
 
     df_mae_test = plot_input_pred_patch(
@@ -449,6 +457,7 @@ def main():
         specific_batch=4,
         specific_patch=11,
         box_coords=[0.2, 42, 24, 21.8],
+        paper_fig="fig14b",
     )
 
     df_mae_test = plot_input_pred_patch(
@@ -463,6 +472,7 @@ def main():
         specific_batch=3,
         specific_patch=0,
         box_coords=[20, 0, 30, 15],
+        paper_fig="fig14c",
     )
 
 
@@ -478,6 +488,7 @@ def main():
         specific_batch=47,
         specific_patch=15,
         box_coords=[24, 44, 39.2, 19.2],
+        paper_fig="fig15a",
     )
 
     df_mae_test = plot_input_pred_patch(
@@ -492,6 +503,7 @@ def main():
         specific_batch=25,
         specific_patch=9,
         box_coords=[13, 20, 29, 31],
+        paper_fig="fig15b",
     )
 
 
@@ -523,7 +535,7 @@ def main():
         num_dataloader_workers,
     ]
 
-    plots_folder_name_1in = "test_pred_54321_20231218_1in"
+    plots_folder_name_1in = f"review_NL_1channel_{plots_stamp}"
 
     trainer_1in, datamodule_1in = test_pred_setup(
         seed, param_const_1in, param_opts[0], dataset_1in, experiment_dir, experiment_name
@@ -585,6 +597,7 @@ def main():
         specific_batch=49,
         specific_patch=8,
         box_coords=[40, 25, 24, 20],
+        paper_fig="fig13a_1in",
     )
 
 
@@ -600,6 +613,7 @@ def main():
         specific_batch=2,
         specific_patch=15,
         box_coords=[25, 15, 39, 10],
+        paper_fig="fig13b_1in",
     )
 
 
@@ -711,7 +725,7 @@ def main():
     start = timeit.default_timer()  # Measuring the time
     file_name_interf = os.path.join(
         rome_dir,
-        "merged_prediction_fixed_stiching_Rome_{}.tif".format(
+        "merged_prediction_Rome_{}.tif".format(
             datetime.now().strftime("%Y%m%d_%H%M%S")
         ),
     )
@@ -742,7 +756,7 @@ def main():
     print(opt_rome)
 
     outputdir_plots_interf = os.path.join(
-        str(_cfg.test.rome.plots_dir), plots_folder_name_1in
+        str(_cfg.test.rome.plots_dir), f"review_Rome_2channel_{plots_stamp}"
     )
     print(
         "Rome review plots: 2-channel paper model ->",
@@ -764,6 +778,7 @@ def main():
         outputdir_plots_interf,
         specific_batch=13,
         specific_patch=11,
+        paper_fig="fig12a",
     )
 
 
@@ -778,6 +793,7 @@ def main():
         outputdir_plots_interf,
         specific_batch=5,
         specific_patch=6,
+        paper_fig="fig12b",
     )
 
 

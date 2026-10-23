@@ -1,7 +1,12 @@
-"""Rasterize OSM infrastructure for each 1x1 degree tile and mosaic for training."""
+"""Rasterize OSM infrastructure for each 1x1 degree tile and mosaic.
+
+Writes a timestamped mosaic next to ``train.input.osm`` so the published
+``OSM_combined.tif`` is not overwritten.
+"""
 
 from __future__ import annotations
 
+from datetime import datetime
 from functools import partial
 from pathlib import Path
 
@@ -122,8 +127,11 @@ def main():
     for path in osm_pbfs:
         print(f"  {path}")
 
-    mosaic_path = Path(cfg.train.input.osm)
-    work_dir = mosaic_path.parent / "tiles"
+    configured = Path(cfg.train.input.osm)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Do not overwrite the published mosaic (train.input.osm / OSM_combined.tif).
+    mosaic_path = configured.with_name(f"{configured.stem}_{stamp}.tif")
+    work_dir = configured.parent / f"tiles_{stamp}"
     work_dir.mkdir(parents=True, exist_ok=True)
 
     osmconvert_bin = cfg.predict.osmconvert
@@ -133,7 +141,7 @@ def main():
         west, south = int(west), int(south)
         east, north = west + 1, south + 1
         lat_f, lon_f = format_degree_tile(west, south)
-        tif_path = work_dir / f"{lat_f}{lon_f}_infrs_map.tif"
+        tif_path = work_dir / f"{lat_f}{lon_f}_infr_map.tif"
         if tif_path.exists():
             print(f"Infrastructure map {lat_f}{lon_f} already generated.")
             tile_paths.append(tif_path)
